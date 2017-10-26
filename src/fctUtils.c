@@ -1,6 +1,6 @@
 /*******************************************************************************
 *   Ledger Blue
-*   (c) 2016 Ledger
+*   (c) 2017 MyFactomWallet
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 ********************************************************************************/
 
 /**
- * @brief Utilities for an Ethereum Hardware Wallet logic
- * @file ethUtils.h
- * @author Ledger Firmware Team <hello@ledger.fr>
+ * @brief Utilities for Factom Hardware Wallet logic
+ * @file fctUtils.h
+ * @author MyFactomWallet Development Team 
  * @version 1.0
- * @date 8th of March 2016
+ * @date 25th of October 2017
  */
 
 #include "os.h"
