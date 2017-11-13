@@ -1,0 +1,45 @@
+{
+  "name": "ledger-node-js-mfw-api",
+  "version": "1.1.3",
+  "description": "Factom Node API for MyFactomWallet.com and Ledger Hardware Wallet (Nano S / Blue)",
+  "main": "./src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MyFactomWallet/ledger-node-js-mfw-api"
+  },
+  "keywords": [
+    "Ledger",
+    "Wallet",
+    "HW.1",
+    "Bitcoin",
+    "Ethereum",
+    "Factom",
+    "Hardware Wallet"
+  ],
+  "author": "Dennis Bunfield",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/MyFactomWallet/ledger-node-js-mfw-api/issues"
+  },
+  "homepage": "https://github.com/MyFactomWallet/ledger-node-js-mfw-api",
+  "dependencies": {
+    "node-hid": "0.5.4",
+    "q": "1.4.1",
+    "ledgerco": "1.1.3",
+    "factomjs-util": "0.1.5"
+  },
+  "devDependencies": {
+    "browserify": "13.1.0",
+    "uglify-js": "2.7.3"
+  },
+  "scripts": {
+    "test": "node test/tests-node.js",
+    "browserify-test": "browserify --im --standalone runTests -o test/tests-browser.js test/tests-node.js",
+    "browserify": "browserify --im --s=ledger -o browser/ledger.js src/index-browserify.js",
+    "uglify": "uglifyjs -o browser/ledger.min.js browser/ledger.js",
+    "clean": "rm -f browser/ledger.js browser/ledger.min.js"
+  },
+  "browser": {
+    "node-hid": false
+  }
+}
