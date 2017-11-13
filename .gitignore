@@ -1,4 +1,4 @@
-debug 
-dep 
-obj 
-bin
+debug/
+dep/
+obj/ 
+bin/

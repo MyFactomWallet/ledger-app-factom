@@ -53,3 +53,7 @@ void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
 
 bool adjustDecimals(char *src, uint32_t srcLength, char *target,
                     uint32_t targetLength, uint8_t decimals);
+
+
+unsigned short fct_print_amount(uint64_t amount, uint8_t *out,
+                                uint32_t outlen);

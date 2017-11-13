@@ -70,7 +70,8 @@
 
 void u2f_transport_handle(u2f_service_t *service, uint8_t *buffer,
                           uint16_t size, u2f_transport_media_t media);
-void u2f_response_error(u2f_service_t *service, char errorCode, bool reset,
+//void u2f_response_error(u2f_service_t *service, char errorCode, bool reset,
+void u2f_response_error(u2f_service_t *service, uint32_t errorCode, bool reset,
                         uint8_t *channel);
 bool u2f_is_channel_broadcast(uint8_t *channel);
 bool u2f_is_channel_forbidden(uint8_t *channel);

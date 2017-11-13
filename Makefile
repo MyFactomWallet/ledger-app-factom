@@ -32,7 +32,7 @@ APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 ifeq ($(TARGET_NAME),TARGET_BLUE)
 ICONNAME=images/app_factom.gif
 else
-ICONNAME=images/mfw.gif
+ICONNAME=images/mfw_bw.gif
 endif
 
 

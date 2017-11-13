@@ -96,7 +96,6 @@
   * @{
   */
 
-
 /**
   * @}
   */
@@ -232,8 +231,7 @@ the configuration*/
     0x09,                /*bLength: HID Descriptor size*/
     HID_DESCRIPTOR_TYPE, /*bDescriptorType: HID*/
     0x11,                /*bHIDUSTOM_HID: HID Class Spec release number*/
-    0x01,
-    0x00, /*bCountryCode: Hardware target country*/
+    0x01, 0x00,          /*bCountryCode: Hardware target country*/
     0x01, /*bNumDescriptors: Number of HID class descriptors to follow*/
     0x22, /*bDescriptorType*/
     sizeof(
@@ -247,8 +245,7 @@ the configuration*/
     HID_EPIN_ADDR,          /*bEndpointAddress: Endpoint Address (IN)*/
     0x03,                   /*bmAttributes: Interrupt endpoint*/
     HID_EPIN_SIZE,          /*wMaxPacketSize: 2 Byte max */
-    0x00,
-    0x01, /*bInterval: Polling Interval (20 ms)*/
+    0x00, 0x01,             /*bInterval: Polling Interval (20 ms)*/
     /* 34 */
 
     0x07,                   /* bLength: Endpoint Descriptor size */
@@ -463,21 +460,18 @@ uint8_t USBD_HID_DataOut_impl(USBD_HandleTypeDef *pdev, uint8_t epnum,
                              U2F_MEDIA_USB);
 #endif
     } else {
-        // avoid troubles when an apdu has not been replied yet
-        if (G_io_apdu_media == IO_APDU_MEDIA_NONE) {
-            // add to the hid transport
-            switch (io_usb_hid_receive(
-                io_usb_send_apdu_data, buffer,
-                io_seproxyhal_get_ep_rx_size(HID_EPOUT_ADDR))) {
-            default:
-                break;
+        // add to the hid transport
+        switch (
+            io_usb_hid_receive(io_usb_send_apdu_data, buffer,
+                               io_seproxyhal_get_ep_rx_size(HID_EPOUT_ADDR))) {
+        default:
+            break;
 
-            case IO_USB_APDU_RECEIVED:
-                G_io_apdu_media = IO_APDU_MEDIA_USB_HID; // for application code
-                G_io_apdu_state = APDU_USB_HID; // for next call to io_exchange
-                G_io_apdu_length = G_io_usb_hid_total_length;
-                break;
-            }
+        case IO_USB_APDU_RECEIVED:
+            G_io_apdu_media = IO_APDU_MEDIA_USB_HID; // for application code
+            G_io_apdu_state = APDU_USB_HID; // for next call to io_exchange
+            G_io_apdu_length = G_io_usb_hid_total_length;
+            break;
         }
     }
 

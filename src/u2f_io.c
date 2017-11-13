@@ -63,8 +63,7 @@ void u2f_io_send(uint8_t *buffer, uint16_t length,
         break;
 #endif
     default:
-#pragma message("DHB Commented out PRINTF")
-        //screen_printf("Request to send on unsupported media %d\n", media);
+        PRINTF("Request to send on unsupported media %d\n", media);
         break;
     }
 }

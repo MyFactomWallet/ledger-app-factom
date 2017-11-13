@@ -44,7 +44,7 @@ static const uint8_t SW_INTERNAL[] = {0x6F, 0x00};
 static const uint8_t NOTIFY_USER_PRESENCE_NEEDED[] = {
     KEEPALIVE_REASON_TUP_NEEDED};
 
-static const uint8_t PROXY_MAGIC[] = {'w', '0', 'w'};
+static const uint8_t PROXY_MAGIC[] = {'m', 'F', 'w'};
 
 #define INIT_U2F_VERSION 0x02
 #define INIT_DEVICE_VERSION_MAJOR 0
@@ -69,7 +69,6 @@ static const uint8_t PROXY_MAGIC[] = {'w', '0', 'w'};
 #define MAX_KEEPALIVE_TIMEOUT_MS 500
 
 static const uint8_t DUMMY_USER_PRESENCE[] = {SIGN_USER_PRESENCE_MASK};
-
 
 void u2f_handle_enroll(u2f_service_t *service, uint8_t p1, uint8_t p2,
                        uint8_t *buffer, uint16_t length) {
@@ -107,7 +106,6 @@ void u2f_handle_sign(u2f_service_t *service, uint8_t p1, uint8_t p2,
                            service->channel);
         return;
     }
-
 
     keyHandleLength = buffer[64];
     for (i = 0; i < keyHandleLength; i++) {
@@ -207,7 +205,7 @@ void u2f_handle_cmd_msg(u2f_service_t *service, uint8_t *buffer,
     }
     switch (ins) {
     case FIDO_INS_ENROLL:
-        // screen_printf("enroll\n");
+        PRINTF("enroll\n");
         u2f_handle_enroll(service, p1, p2, buffer + 7, dataLength);
         break;
     case FIDO_INS_SIGN:

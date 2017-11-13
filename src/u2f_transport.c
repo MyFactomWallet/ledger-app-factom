@@ -53,6 +53,8 @@ void u2f_transport_handle(u2f_service_t *service, uint8_t *buffer,
                            channel);
         goto error;
     }
+    u2f_response_error(service, (buffer[channelHeader]&U2F_MASK_COMMAND) != 0, true, channel);
+    goto error;
     if ((buffer[channelHeader] & U2F_MASK_COMMAND) != 0) {
         if (size < (channelHeader + 3)) {
             // Message to short, abort
@@ -198,7 +200,8 @@ error:
     return;
 }
 
-void u2f_response_error(u2f_service_t *service, char errorCode, bool reset,
+//void u2f_response_error(u2f_service_t *service, char errorCode, bool reset,
+void u2f_response_error(u2f_service_t *service, uint32_t errorCode, bool reset,
                         uint8_t *channel) {
     uint8_t offset = 0;
     os_memset(service->outputBuffer, 0, MAX_SEGMENT_SIZE);
@@ -208,7 +211,7 @@ void u2f_response_error(u2f_service_t *service, char errorCode, bool reset,
     }
     service->outputBuffer[offset++] = U2F_STATUS_ERROR;
     service->outputBuffer[offset++] = 0x00;
-    service->outputBuffer[offset++] = 0x01;
+    service->outputBuffer[offset++] = errorCode>>8;//0x01;
     service->outputBuffer[offset++] = errorCode;
     u2f_send_direct_response_short(service, service->outputBuffer, offset);
     if (reset) {

@@ -270,3 +270,32 @@ bool adjustDecimals(char *src, uint32_t srcLength, char *target,
     }
     return true;
 }
+
+unsigned short fct_print_amount(uint64_t amount, uint8_t *out,
+                                uint32_t outlen) {
+    char tmp[20];
+    char tmp2[25];
+    uint32_t numDigits = 0, i;
+    uint64_t base = 1;
+    while (base <= amount) {
+        base *= 10;
+        numDigits++;
+    }
+    if (numDigits > sizeof(tmp) - 1) {
+        THROW(EXCEPTION);
+    }
+    base /= 10;
+    for (i = 0; i < numDigits; i++) {
+        tmp[i] = '0' + ((amount / base) % 10);
+        base /= 10;
+    }
+    tmp[i] = '\0';
+    strcpy(tmp2, "FCT ");
+    adjustDecimals(tmp, i, tmp2 + 4, 25, 6);
+    if (strlen(tmp2) < outlen - 1) {
+        strcpy(out, tmp2);
+    } else {
+        out[0] = '\0';
+    }
+    return strlen(out);
+}
