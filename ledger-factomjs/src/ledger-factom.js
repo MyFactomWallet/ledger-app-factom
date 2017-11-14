@@ -114,10 +114,11 @@ LedgerFct.prototype.signTransaction_async = function(path, tx) {
 		apdus.push(buffer.toString('hex'));
 		offset += chunkSize;
 	}
+	offset = 0
 	while (offset != amtsz.length ) {
                 var maxChunkSize = 150
                 var chunkSize = (offset + maxChunkSize > amtsz.length ? amtsz.length - offset : maxChunkSize);
-                var buffer = new Buffer(chunkSize);
+                var buffer = new Buffer(5+chunkSize);
                 buffer[0] = 0xe0;
                 buffer[1] = 0x04;
                 buffer[2] = 0x8F;
@@ -125,6 +126,9 @@ LedgerFct.prototype.signTransaction_async = function(path, tx) {
                 buffer[4] = chunkSize;
                 amtsz.copy(buffer, 5, offset, offset + chunkSize);
                 apdus.push(buffer.toString('hex'));
+	        console.log('===============ADPUS AMT LEN==============')
+		console.log(buffer.toString('hex'))
+	        console.log('===============ADPUS AMT LEN==============')
                 offset += chunkSize;
 	}
 	return utils.foreach(apdus, function(apdu) {
