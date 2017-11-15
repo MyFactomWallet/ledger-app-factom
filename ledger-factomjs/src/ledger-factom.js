@@ -74,20 +74,21 @@ LedgerFct.prototype.signTransaction_async = function(path, tx) {
 		               tx.Outputs.length + 
 	                       tx.ECOutputs.length)	
 	for (var i = 0; i < tx.Inputs.length; ++i) {
-            var buf = fctUtil.intToBuffer(tx.Inputs[i])
-            amtsz[i] = buf.length % 0x10 + 1
+            var buf = fctUtil.intToBuffer(tx.Inputs[i].Amount)
+            amtsz[i] = buf.length
 	}
 	for ( i = 0; i < tx.Outputs.length; ++i) {
-            var buf = fctUtil.intToBuffer(tx.Outputs[i])
-            amtsz[i+tx.Inputs.length] = buf.length % 0x10 + 1
+            var buf = fctUtil.intToBuffer(tx.Outputs[i].Amount)
+            amtsz[i+tx.Inputs.length] = buf.length
 	}
 	for ( i = 0; i < tx.ECOutputs.length; ++i) {
-            var buf = fctUtil.intToBuffer(tx.ECOutputs[i])
-            amtsz[i+tx.Inputs.length+tx.Outputs.length] = buf.length % 0x10 + 1
+            var buf = fctUtil.intToBuffer(tx.ECOutputs[i].Amount)
+            amtsz[i+tx.Inputs.length+tx.Outputs.length] = buf.length
 	}
 
 	console.log('===============TXLENGTH==============')
 	console.log(amtsz.toString('hex'))
+	console.log(amtsz.length)
 	console.log('===============TXLENGTH==============')
 	while (offset != rawTx.length ) {
 		var maxChunkSize = (offset == 0 ? (150 - 1 - splitPath.length * 4) : 150)
@@ -122,7 +123,7 @@ LedgerFct.prototype.signTransaction_async = function(path, tx) {
                 buffer[0] = 0xe0;
                 buffer[1] = 0x04;
                 buffer[2] = 0x8F;
-                buffer[3] = 0x00;
+                buffer[3] = (offset + chunkSize >= amtsz.length ? 0x01 : 0x00);
                 buffer[4] = chunkSize;
                 amtsz.copy(buffer, 5, offset, offset + chunkSize);
                 apdus.push(buffer.toString('hex'));
@@ -131,7 +132,11 @@ LedgerFct.prototype.signTransaction_async = function(path, tx) {
 	        console.log('===============ADPUS AMT LEN==============')
                 offset += chunkSize;
 	}
+		console.log(apdus)
 	return utils.foreach(apdus, function(apdu) {
+	        console.log('===============ADPU==============')
+		console.log(apdu)
+	        console.log('===============ADPU==============')
 		return self.comm.exchange(apdu, [0x9000]).then(function(apduResponse) {
 			response = apduResponse;
 		})
