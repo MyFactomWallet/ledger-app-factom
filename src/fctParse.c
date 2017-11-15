@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ripple Wallet
-*   (c) 2017 Ledger
+*   Factom Wallet
+*   (c) 2017 MyFactomWallet
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -222,18 +222,18 @@ parserStatus_e parseTxAddress(uint8_t *data, uint32_t length, uint8_t *amtsz,
     uint32_t offset = *offsetParam;
     for (int i = 0 ; i < count; ++i )
     {
-	uint8_t amtsize = *amtsz;
-        if ( offset+amtsize > length )
+	int8_t amtsize = *amtsz-1;
+        if ( offset+amtsize > length || amtsize < 0 || amtsize > 7)
         {
             goto error;
         }
         context[i].value = 0;
-	for(int j = 0; j < *amtsz; --j,--amtsize)
+	for(int j = 0; j < *amtsz; ++j,--amtsize)
 	{
-            context[i].value |= data[offset+j] >> 8 * amtsize;
+            context[i].value |= data[offset+j] <<(8 * amtsize);
 	}
+        offset += *amtsz;
 	++amtsz;
-        offset += amtsize;
 //        var checksum = sha256d(copyBuffer(add, 0, 34))
 //        if (bufferToHex(copyBuffer(checksum, 0, 4)) === bufferToHex(copyBuffer(add, 34, 38))) {
 //          return true
@@ -287,7 +287,7 @@ parserStatus_e parseTxInternal(uint8_t *data, uint32_t length,
             break;*/
         default:
             //result = USTREAM_FAULT_INTERNAL;
-	    return 0x6E00|(uint8_t)dataType;
+	    return 0x6E00;//|(uint8_t)dataType;
             goto error;
         }
         if (result != USTREAM_FINISHED) {
