@@ -2139,6 +2139,8 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 
 	tmpCtx.transactionContext.expectedTxLength = totaltxlen;
         os_memmove(tmpCtx.transactionContext.rawTx, workBuffer, dataLength);
+        //THROW(0x6B00);
+        THROW(0x9000);
 	break;
     case P1_MORE: 
 	if ( tmpCtx.transactionContext.rawTxLength  > sizeof(tmpCtx.transactionContext.rawTx) )
@@ -2150,15 +2152,17 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         os_memmove(&tmpCtx.transactionContext.rawTx[tmpCtx.transactionContext.rawTxLength],
                    workBuffer, dataLength);
 	tmpCtx.transactionContext.rawTxLength += dataLength;
+
 	//continue
-        if ( p1 == P1_MORE ) {
-            THROW(0x6B00);
-	}
+        THROW(0x9000);
+	break;
     case P1_LAST: 
         os_memmove(&tmpCtx.transactionContext.amtsz[tmpCtx.transactionContext.amtszLength],
-			workBuffer, dataLength);
+                   workBuffer, dataLength);
 	tmpCtx.transactionContext.amtszLength += dataLength;
-        THROW(0x6B00);
+	if ( p2 == 0 ) {
+            THROW(0x9000);
+	}
 	break;
     default:
         THROW(0x6B00);
@@ -2167,7 +2171,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     if ( tmpCtx.transactionContext.expectedTxLength < tmpCtx.transactionContext.rawTxLength )
     {
 	//too little data
-        THROW(0x6B00| tmpCtx.transactionContext.rawTxLength);
+        THROW(0x6B00 | tmpCtx.transactionContext.rawTxLength);
     }
     else if ( tmpCtx.transactionContext.expectedTxLength > 
 		    tmpCtx.transactionContext.rawTx )
@@ -2196,7 +2200,8 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     {
         //TODO: should input ever be > 1?
         //Also need to verify input address to device address
-        fct_print_amount(&txContent.inputs[i].value, fullAmount, sizeof(fullAmount));
+	//uint64_t fakeamount = 1000;
+        fct_print_amount(txContent.inputs[i].value, fullAmount, sizeof(fullAmount));
     }
 //    xrp_print_amount(txContent.fees, maxFee, sizeof(fullAmount));
 //    addressLength = xrp_public_key_to_encoded_base58(
