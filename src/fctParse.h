@@ -66,6 +66,7 @@ typedef struct txSignedRCD_t {
 
 typedef struct txContent_t {
     txContentHeader_t header;
+    uint32_t fees;
     txContentAddress_t inputs[MAX_INPUT_ADDRESSES];
     txContentAddress_t outputs[MAX_OUTPUT_ADDRESSES];
     txContentAddress_t ecpurchase[MAX_ECOUTPUT_ADDRESSES];
