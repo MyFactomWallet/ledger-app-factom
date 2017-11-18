@@ -11,7 +11,7 @@ else {
 
 var Q = require('q');
 
-var TIMEOUT = 200;
+var TIMEOUT = 200000;
 
 var tests = [
     {name: 'testFctGetAddress', run: require('./FctGetPublicAddress')},
