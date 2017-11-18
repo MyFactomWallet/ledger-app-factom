@@ -22,7 +22,6 @@
 #include "fctUtils.h"
 #include "fctParse.h"
 #include "uint256.h"
-#include "tokens.h"
 
 #include "os_io_seproxyhal.h"
 #include "string.h"
@@ -91,11 +90,6 @@ uint32_t set_result_get_publicKey(void);
 static const uint8_t const TOKEN_TRANSFER_ID[] = {0xa9, 0x05, 0x9c, 0xbb};
 static const uint8_t const TICKER_FCT[] = "FCT ";
 static const uint8_t const TICKER_EC[] = "EC ";
-typedef struct tokenContext_t {
-    uint8_t data[4 + 32 + 32];
-    uint32_t dataFieldPos;
-    bool provisioned;
-} tokenContext_t;
 
 typedef struct publicKeyContext_t {
     cx_ecfp_public_key_t publicKey;
@@ -138,7 +132,6 @@ union {
 } tmpContent;
 
 cx_sha3_t sha3;
-tokenContext_t tokenContext;
 volatile uint8_t dataAllowed;
 volatile uint8_t fidoTransport;
 volatile char addressSummary[32];
@@ -1788,33 +1781,27 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
 #endif // #if defined(TARGET_NANOS)
 
 unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e) {
-    uint8_t privateKeyData[32];
-    uint8_t signature[100];
-    uint8_t signatureLength;
+    uint8_t privateKeyData[64];
+    uint8_t signature[1024];
+    uint32_t signatureLength = 0;
     cx_ecfp_private_key_t privateKey;
-    
     uint8_t rLength, sLength, rOffset, sOffset;
+
     os_perso_derive_node_bip32(
-        CX_CURVE_Ed25519, tmpCtx.transactionContext.bip32Path,
-        tmpCtx.transactionContext.pathLength, privateKeyData, NULL);
+        CX_CURVE_Ed25519, 
+	tmpCtx.transactionContext.bip32Path,
+        tmpCtx.transactionContext.pathLength, 
+	privateKeyData, NULL);
     cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
+
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
-//CX_ECSCHNORR_BSI03111
-//CX_ECSCHNORR_ISO14888_X
-//CX_ECSCHNORR_ISO14888_XY
-//CX_ECSCHNORR_LIBSECP
-    signatureLength = cx_ecschnorr_sign(&privateKey, CX_ECSCHNORR_ISO14888_XY, CX_SHA256,
-         tmpCtx.transactionContext.rawTx,
-         tmpCtx.transactionContext.rawTxLength, signature);
-//or do we use this one? 
-//   signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA256,
-//                      tmpCtx.transactionContext.rawTx,
-//                      tmpCtx.transactionContext.rawTxLength,
-//                      G_io_apdu_buffer);
-    
+
+    signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
+		                    tmpCtx.transactionContext.rawTx,
+		                    tmpCtx.transactionContext.rawTxLength,
+		                    G_io_apdu_buffer);
 
     os_memset(&privateKey, 0, sizeof(privateKey));
-
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
 
@@ -1939,44 +1926,6 @@ void convertUint256BE(uint8_t *data, uint32_t length, uint256_t *target) {
     os_memmove(tmp + 32 - length, data, length);
     readu256BE(tmp, target);
 }
-
-#if 0
-bool customProcessor(txContext_t *context) {
-    if ((context->currentField == TX_RLP_DATA) &&
-        (context->currentFieldLength != 0)) {
-        if (!N_storage.dataAllowed) {
-            PRINTF("Data field forbidden\n");
-            THROW(EXCEPTION);
-        } else {
-            dataPresent = true;
-            if (context->currentFieldLength == sizeof(tokenContext.data)) {
-                if (context->currentFieldPos < context->currentFieldLength) {
-                    uint32_t copySize = (context->commandLength <
-                                                 ((context->currentFieldLength -
-                                                   context->currentFieldPos))
-                                             ? context->commandLength
-                                             : context->currentFieldLength -
-                                                   context->currentFieldPos);
-                    copyTxData(context,
-                               tokenContext.data + context->currentFieldPos,
-                               copySize);
-                }
-                if (context->currentFieldPos == context->currentFieldLength) {
-                    context->currentField++;
-                    context->processingField = false;
-                    // Initial check to see if the token content can be
-                    // processed
-                    tokenContext.provisioned =
-                        (os_memcmp(tokenContext.data, TOKEN_TRANSFER_ID, 4) ==
-                         0);
-                }
-                return true;
-            }
-        }
-    }
-    return false;
-}
-#endif
 
 void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
                         uint16_t dataLength, 
@@ -2156,7 +2105,8 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 	//continue
         THROW(0x9000);
 	break;
-    case P1_LAST: 
+    case P1_LAST:   
+	txContent.fees = 123456;
         os_memmove(&tmpCtx.transactionContext.amtsz[tmpCtx.transactionContext.amtszLength],
                    workBuffer, dataLength);
 	tmpCtx.transactionContext.amtszLength += dataLength;
@@ -2203,7 +2153,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 	//uint64_t fakeamount = 1000;
         fct_print_amount(txContent.inputs[i].value, fullAmount, sizeof(fullAmount));
     }
-//    xrp_print_amount(txContent.fees, maxFee, sizeof(fullAmount));
+    fct_print_amount(txContent.fees, maxFee, sizeof(maxFee));
 //    addressLength = xrp_public_key_to_encoded_base58(
 //        txContent.destination, 20, tmpCtx.publicKeyContext.address,
 //        sizeof(tmpCtx.publicKeyContext.address), 0, 1);
@@ -2232,7 +2182,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     // "confirm", amount, address, [sourcetag], [destinationtag], fees
     ux_step_count = 4;
 //    if (txContent.sourceTagPresent) {
-//        ux_step_count++;
+        ux_step_count++;
 //    }
 //    if (txContent.destinationTagPresent) {
 //        ux_step_count++;
