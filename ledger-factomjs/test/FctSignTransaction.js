@@ -17,42 +17,32 @@
 
 
 var fctUtils = require('factomjs-util')
-
 function runTest(comm, ledger, timeout) {
 
-    return comm.create_async(timeout, true).then(function (comm) {
-        var fct = new ledger.factom(comm);
-	//All paths for the factom ledger app -MUST- be hardened.
-        return fct.getAddress_async("44'/131'/0'/0'/0'").then(function (result) {
-            console.log(result);
-            var t = new fctUtils.Transaction()
-            var pubKey = result['publicKey']
-            t.addInput(result['address'], 10000)
-	    t.addOutput('FA2bEwF9UB2WCYhqPXxKknHyxoju4g6Uwoa7jw3cHCfQuPNz75yo', 10)
-            t.updateTime(1503275254039)
-            var rcd = fctUtils.publicHumanAddressStringToRCD(result['address'])
-            console.log("-------+==================================================")
-		console.log(rcd.toString('hex'))
-            console.log("-------+==================================================")
-            var data = t.MarshalBinarySig();
-
-            console.log("+++++++==================================================")
-            console.log(data.toString('hex'))
-            console.log("+++++++==================================================")
-            //now we have the data so send it to get signed 
-	    //return fct.signTransaction_async("44'/131'/0'/0'/0'").then(function (result) {
-	    return fct.signTransaction_async("44'/131'/0'/0'/0'",t).then(function (result) {
-            console.log("==================================================")
-            console.log(result['s'])
-            t.addSignature(result['s'])
-	    t.addRCD(result['r'])
-            console.log("==================================================")
-            return fct.close_async();
-	})
-            
+  return comm.create_async(timeout, true).then(function (comm) {
+    var fct = new ledger.factom(comm);
+    //All paths for the factom ledger app -MUST- be hardened.
+    return fct.getAddress_async("44'/131'/0'/0'/0'").then(function (result) {
+      console.log(result);
+      var t = new fctUtils.Transaction()
+      var pubKey = result['publicKey']
+      t.addInput(result['address'], 1000)
+      t.addOutput('FA2bEwF9UB2WCYhqPXxKknHyxoju4g6Uwoa7jw3cHCfQuPNz75yo', 1000)
+	    console.log(t.Outputs[0].RCDHash.toString('hex'))
+      t.updateTime(1503275254039)
+      var rcd = fctUtils.publicHumanAddressStringToRCD(result['address'])
+      //now we have the data so send it to get signed 
+      return fct.signTransaction_async("44'/131'/0'/0'/0'",t).then(function (result) {
+        console.log("==================================================")
+        console.log(result['s'])
+        console.log(result['r'])
+        console.log("==================================================")
+        t.addSignature(result['s'])
+        t.addRCD(result['r'])
+        return fct.close_async();
         })
+      })
     })
-
 }
 
 module.exports = runTest;

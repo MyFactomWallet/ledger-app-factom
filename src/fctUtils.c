@@ -185,6 +185,21 @@ void getRCDFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
 //the key prefix code is byte swapped
 const uint16_t g_factom_key_prefix[] = { 0xb15f, 0x7864, 0x2a59, 0xb65d };
 
+void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, uint8_t keytype)
+{
+    uint8_t address[38];
+
+    *(uint16_t*)address = g_factom_key_prefix[keytype];
+
+    os_memmove(address+2, rcdhash, 32);
+
+    uint8_t checksum[32];
+    sha256d(address, 34, checksum);
+    os_memmove(address+34, checksum, 4);
+
+    btchip_encode_base58(address, 38, out, 52);
+}
+
 void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
                                 uint8_t keytype) {
     uint8_t address[38];//prefix(2 bytes) + RCD_hash(32 bytes) + checksum(4 bytes)
@@ -196,6 +211,7 @@ void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
     *(uint16_t*)address = g_factom_key_prefix[keytype];
     sha256d(publicKey->W, publicKey->W_len, &address[2]);
     
+
     //2) Take the SHA256d of the above data. Append the first 4 bytes of 
     //   this SHA256d to the end of the above value bytewise
     sha256d(address, 34, checksum);

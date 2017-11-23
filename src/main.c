@@ -1672,7 +1672,7 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                 break;
             case 2:
                 if (dataPresent) {
-                    UX_CALLBACK_SET_INTERVAL(3000);
+                    UX_CALLBACK_SET_INTERVAL(2000);
                 } else {
                     display = 0;
                     ux_step++; // display the next step
@@ -1783,7 +1783,7 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
 unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e) {
     uint8_t privateKeyData[64];
     uint8_t signature[1024];
-    uint32_t signatureLength = 0;
+    uint16_t signatureLength = 0;
     cx_ecfp_private_key_t privateKey;
     uint8_t rLength, sLength, rOffset, sOffset;
 
@@ -1793,15 +1793,32 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e) {
         tmpCtx.transactionContext.pathLength, 
 	privateKeyData, NULL);
     cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
-
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
 
+    //store signature in 35..97
     signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
 		                    tmpCtx.transactionContext.rawTx,
 		                    tmpCtx.transactionContext.rawTxLength,
-		                    G_io_apdu_buffer);
+		                    &G_io_apdu_buffer[35]);
+
+    cx_ecfp_generate_pair(CX_CURVE_Ed25519, &tmpCtx.publicKeyContext.publicKey,
+                         &privateKey, 1);
 
     os_memset(&privateKey, 0, sizeof(privateKey));
+
+#if 1 
+    //return length of signature in 33..34
+    G_io_apdu_buffer[33] = (uint8_t)(signatureLength >> 8);
+    G_io_apdu_buffer[34] = (uint8_t)(signatureLength);
+    signatureLength += 2; 
+
+    //Return RCD in 0..33
+    getRCDFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+                               G_io_apdu_buffer, 
+			       33, PUBLIC_OFFSET_FCT);
+    signatureLength+=33;
+#endif
+    //append success 
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
 
@@ -1998,6 +2015,7 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
 				PRIVATE_OFFSET_FCT);
 #else
     //convert the public key to an address
+    //publicKey is RCD
     getFctAddressStringFromKey(&tmpCtx.publicKeyContext.publicKey,
                                 tmpCtx.publicKeyContext.address, 
 				keytype);
@@ -2088,7 +2106,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 
 	tmpCtx.transactionContext.expectedTxLength = totaltxlen;
         os_memmove(tmpCtx.transactionContext.rawTx, workBuffer, dataLength);
-        //THROW(0x6B00);
+
         THROW(0x9000);
 	break;
     case P1_MORE: 
@@ -2106,7 +2124,15 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         THROW(0x9000);
 	break;
     case P1_LAST:   
-	txContent.fees = 123456;
+	/*
+	txContent.fees = (workBuffer[0] << 24) |
+                         (workBuffer[1] << 16) |
+                         (workBuffer[2] << 8)  |
+                         (workBuffer[3]);
+        workBuffer += 4;
+        dataLength -= 4;
+	*/
+
         os_memmove(&tmpCtx.transactionContext.amtsz[tmpCtx.transactionContext.amtszLength],
                    workBuffer, dataLength);
 	tmpCtx.transactionContext.amtszLength += dataLength;
@@ -2150,9 +2176,11 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     {
         //TODO: should input ever be > 1?
         //Also need to verify input address to device address
-	//uint64_t fakeamount = 1000;
         fct_print_amount(txContent.inputs[i].value, fullAmount, sizeof(fullAmount));
+	getFctAddressStringFromRCDHash(txContent.inputs[i].rcdhash, tmpCtx.publicKeyContext.address, PUBLIC_OFFSET_FCT);
+
     }
+    addressLength = 52;
     fct_print_amount(txContent.fees, maxFee, sizeof(maxFee));
 //    addressLength = xrp_public_key_to_encoded_base58(
 //        txContent.destination, 20, tmpCtx.publicKeyContext.address,
@@ -2169,10 +2197,6 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     os_memmove((void *)(addressSummary + 8),
                tmpCtx.publicKeyContext.address + addressLength - 4, 4);
 #endif
-
-//    os_memmove(tmpCtx.transactionContext.rawTx,
-//               workBuffer, dataLength);
-//    tmpCtx.transactionContext.rawTxLength = dataLength;
 
 #if defined(TARGET_BLUE)
     ux_step_count = 0;

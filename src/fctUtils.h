@@ -45,8 +45,7 @@ void sha256d(uint8_t *data, uint32_t len, uint8_t *out);
 void getRCDFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey, 
 		              uint8_t *out, uint8_t len, uint8_t keytype);
 
-void getFctAddressFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
-                          cx_sha3_t *sha3Context);
+void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, uint8_t keytype);
 
 void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
                                 uint8_t fct_address_type);
