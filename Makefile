@@ -68,7 +68,7 @@ DEFINES   += APPVERSION=\"$(APPVERSION)\"
 CC       := $(CLANGPATH)clang 
 
 #CFLAGS   += -O0
-CFLAGS   += -O3 -Os 
+CFLAGS   += -O3 -Os -I${GCCPATH}/../arm-none-eabi/include/
 
 AS     := $(GCCPATH)arm-none-eabi-gcc
 
@@ -85,6 +85,7 @@ SDK_SOURCE_PATH  += lib_stusb
 
 
 load: all
+	echo python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
 
 delete:
