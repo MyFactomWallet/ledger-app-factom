@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Ledger Blue
+*   Factom Wallet 
 *   (c) 2017 MyFactomWallet
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -53,7 +53,7 @@ void ui_idle(void);
 
 uint32_t set_result_get_publicKey(void);
 
-//the address maxpath will be 10 when path (m/44'/131'/0'/0) is encoded to an array 
+//the address maxpath will be 10 when path (m/44'/131'/0'/0') is encoded to an array 
 #define MAX_BIP32_PATH 10 
 
 #define CLA 0xE0
@@ -87,7 +87,6 @@ uint32_t set_result_get_publicKey(void);
 #define TX_MAX_AMT_ADDR_COUNT MAX_INPUTS * 2
 #define MAX_RAW_TX TX_HEADER_SIZE + TX_MAX_AMT_ADDR_COUNT * TX_MAX_AMT_ADDR_SIZE   //200
 
-static const uint8_t const TOKEN_TRANSFER_ID[] = {0xa9, 0x05, 0x9c, 0xbb};
 static const uint8_t const TICKER_FCT[] = "FCT ";
 static const uint8_t const TICKER_EC[] = "EC ";
 
@@ -122,7 +121,6 @@ union {
     transactionContext_t transactionContext;
     messageSigningContext_t messageSigningContext;
 } tmpCtx;
-//txContext_t txContext;
 
 txContent_t txContent;
 
@@ -163,7 +161,6 @@ typedef struct internalStorage_t {
 WIDE internalStorage_t N_storage_real;
 #define N_storage (*(WIDE internalStorage_t *)PIC(&N_storage_real))
 
-static const char const CONTRACT_ADDRESS[] = "New contract";
 
 static const char const SIGN_MAGIC[] = "\x19"
                                        "Factoid Signed Message:\n";
@@ -382,7 +379,7 @@ const ux_menu_entry_t menu_settings_data[] = {
     UX_MENU_END};
 
 const ux_menu_entry_t menu_settings[] = {
-    {NULL, menu_settings_data_init, 0, NULL, "Contract data", NULL, 0, 0},
+   // {NULL, menu_settings_data_init, 0, NULL, "Contract data", NULL, 0, 0},
 #ifdef HAVE_U2F
     {NULL, menu_settings_browser_init, 0, NULL, "Browser support", NULL, 0, 0},
 #endif // HAVE_U2F
@@ -1807,7 +1804,7 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e) {
     os_memset(&privateKey, 0, sizeof(privateKey));
 
 #if 1 
-    //return length of signature in 33..34
+    //return length of signature in 33..34, should be 64
     G_io_apdu_buffer[33] = (uint8_t)(signatureLength >> 8);
     G_io_apdu_buffer[34] = (uint8_t)(signatureLength);
     signatureLength += 2; 
@@ -2065,9 +2062,9 @@ void handleGetAppConfiguration(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 }
 
 void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
-                               uint16_t dataLength,
-                               volatile unsigned int *flags,
-                               volatile unsigned int *tx) {
+                uint16_t dataLength, volatile unsigned int *flags,
+                volatile unsigned int *tx) {
+    UNUSED(tx);
     uint8_t addressLength;
     uint32_t i;
     switch (p1)
@@ -2174,19 +2171,20 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
     for ( int i = 0; i < *txContent.header.inputcount;++i )
     {
-        //TODO: should input ever be > 1?
+        //TODO: if input > 1?
         //Also need to verify input address to device address
         fct_print_amount(txContent.inputs[i].value, fullAmount, sizeof(fullAmount));
 	getFctAddressStringFromRCDHash(txContent.inputs[i].rcdhash, tmpCtx.publicKeyContext.address, PUBLIC_OFFSET_FCT);
-
     }
     addressLength = 52;
     fct_print_amount(txContent.fees, maxFee, sizeof(maxFee));
-//    addressLength = xrp_public_key_to_encoded_base58(
-//        txContent.destination, 20, tmpCtx.publicKeyContext.address,
-//        sizeof(tmpCtx.publicKeyContext.address), 0, 1);
-//    tmpCtx.publicKeyContext.address[addressLength] = '\0';
 
+    for ( int i = 0; i < *txContent.header.outputcount;++i )
+    {
+        //fct_print_amount(txContent.inputs[i].value, fullAmount, sizeof(fullAmount));
+	//getFctAddressStringFromRCDHash(txContent.inputs[i].rcdhash, tmpCtx.publicKeyContext.address, PUBLIC_OFFSET_FCT);
+    }
+	    
 #if defined(TARGET_BLUE)
     strcpy(fullAddress, tmpCtx.publicKeyContext.address);
 
@@ -2224,7 +2222,7 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
     BEGIN_TRY {
         TRY {
             if (G_io_apdu_buffer[OFFSET_CLA] != CLA) {
-	        THROW(0x6E00);
+                THROW(0x6E00);
             }
 
             switch (G_io_apdu_buffer[OFFSET_INS]) {
@@ -2244,28 +2242,21 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
 
             case INS_GET_APP_CONFIGURATION:
                 handleGetAppConfiguration(
-                    G_io_apdu_buffer[OFFSET_P1], 
-		    G_io_apdu_buffer[OFFSET_P2],
+                    G_io_apdu_buffer[OFFSET_P1], G_io_apdu_buffer[OFFSET_P2],
                     G_io_apdu_buffer + OFFSET_CDATA,
                     G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
 
             default:
-
                 THROW(0x6D00);
-
                 break;
             }
-        }
-        CATCH(EXCEPTION_IO_RESET) {
-            THROW(EXCEPTION_IO_RESET);
         }
         CATCH_OTHER(e) {
             switch (e & 0xF000) {
             case 0x6000:
                 // Wipe the transaction context and report the exception
                 sw = e;
-                //os_memset(&txContext, 0, sizeof(txContext));
                 os_memset(&txContent, 0, sizeof(txContent));
                 break;
             case 0x9000:
@@ -2307,7 +2298,6 @@ void sample_main(void) {
                 rx = tx;
                 tx = 0; // ensure no race in catch_other if io_exchange throws
                         // an error
-			
                 rx = io_exchange(CHANNEL_APDU | flags, rx);
                 flags = 0;
 
@@ -2318,9 +2308,6 @@ void sample_main(void) {
                 }
 
                 handleApdu(&flags, &tx);
-            }
-            CATCH(EXCEPTION_IO_RESET) {
-                THROW(EXCEPTION_IO_RESET);
             }
             CATCH_OTHER(e) {
                 switch (e & 0xF000) {
@@ -2429,31 +2416,27 @@ __attribute__((section(".boot"))) int main(void) {
     // exit critical section
     __asm volatile("cpsie i");
 
-    os_memset(&txContent, 0, sizeof(txContent));
+    // ensure exception will work as planned
+    os_boot();
 
     for (;;) {
+        os_memset(&txContent, 0, sizeof(txContent));
+
         UX_INIT();
-
-        // ensure exception will work as planned
-        os_boot();
-
         BEGIN_TRY {
             TRY {
                 io_seproxyhal_init();
 
                 if (N_storage.initialized != 0x01) {
                     internalStorage_t storage;
-                    storage.dataAllowed = 0x01;
                     storage.fidoTransport = 0x00;
                     storage.initialized = 0x01;
                     nvm_write(&N_storage, (void *)&storage,
                               sizeof(internalStorage_t));
                 }
 
-                USB_power_U2F(0, 0);
 #ifdef HAVE_U2F
                 os_memset((unsigned char *)&u2fService, 0, sizeof(u2fService));
-
                 u2fService.inputBuffer = G_io_apdu_buffer;
                 u2fService.outputBuffer = G_io_apdu_buffer;
                 u2fService.messageBuffer = (uint8_t *)u2fMessageBuffer;
