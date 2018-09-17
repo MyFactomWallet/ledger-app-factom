@@ -1,6 +1,7 @@
 /*******************************************************************************
 *   Factom Wallet 
-*   (c) 2017 MyFactomWallet
+*   (c) 2018 The Factoid Authority
+*            ledger@factoid.org
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -18,12 +19,15 @@
 #include "os.h"
 #include "cx.h"
 #include <stdbool.h>
-//#include "ethUstream.h"
+
 #include "fctUtils.h"
 #include "fctParse.h"
+#include "ecParse.h"
+#include "ccParse.h"
 #include "uint256.h"
 
 #include "os_io_seproxyhal.h"
+#include "btchip_apdu_constants.h"
 #include "string.h"
 
 #include "glyphs.h"
@@ -45,6 +49,7 @@ unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 unsigned int io_seproxyhal_touch_settings(const bagl_element_t *e);
 unsigned int io_seproxyhal_touch_exit(const bagl_element_t *e);
 unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e);
+unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e);
 unsigned int io_seproxyhal_touch_tx_cancel(const bagl_element_t *e);
 unsigned int io_seproxyhal_touch_address_ok(const bagl_element_t *e);
 unsigned int io_seproxyhal_touch_address_cancel(const bagl_element_t *e);
@@ -61,9 +66,12 @@ uint32_t set_result_get_publicKey(void);
 #define INS_SIGN 0x04
 #define INS_GET_APP_CONFIGURATION 0x06
 #define INS_SIGN_PERSONAL_MESSAGE 0x08
-
 #define INS_GET_PUBLIC_EC_KEY 0x10
-#define INS_EC_SIGN 0x20
+#define INS_COMMIT_SIGN 0x12
+
+#define COIN_TYPE_EC 132
+#define COIN_TYPE_FCT 131
+
 
 #define P1_CONFIRM 0x01
 #define P1_NON_CONFIRM 0x00
@@ -73,6 +81,7 @@ uint32_t set_result_get_publicKey(void);
 #define P1_MORE 0x80
 #define P1_LAST 0x8F
 
+
 #define OFFSET_CLA 0
 #define OFFSET_INS 1
 #define OFFSET_P1 2
@@ -80,15 +89,12 @@ uint32_t set_result_get_publicKey(void);
 #define OFFSET_LC 4
 #define OFFSET_CDATA 5
 
-//max transaction can be the header + 256 inputs + 256 outputs
-#define MAX_INPUTS 10
+//max transaction can be the header + 10 inputs + 10 outputs
+#define MAX_OUTPUTS 10
 #define TX_HEADER_SIZE (1+6+3)
 #define TX_MAX_AMT_ADDR_SIZE (8+32)
-#define TX_MAX_AMT_ADDR_COUNT MAX_INPUTS * 2
-#define MAX_RAW_TX TX_HEADER_SIZE + TX_MAX_AMT_ADDR_COUNT * TX_MAX_AMT_ADDR_SIZE   //200
-
-static const uint8_t const TICKER_FCT[] = "FCT ";
-static const uint8_t const TICKER_EC[] = "EC ";
+#define TX_MAX_AMT_ADDR_COUNT MAX_OUTPUTS
+#define MAX_RAW_TX TX_HEADER_SIZE + MAX_OUTPUTS * TX_MAX_AMT_ADDR_SIZE + TX_MAX_AMT_ADDR_SIZE //200
 
 typedef struct publicKeyContext_t {
     cx_ecfp_public_key_t publicKey;
@@ -103,8 +109,6 @@ typedef struct transactionContext_t {
     uint32_t bip32Path[MAX_BIP32_PATH];
     uint8_t rawTx[MAX_RAW_TX];
     uint32_t rawTxLength;
-    uint8_t amtsz[TX_MAX_AMT_ADDR_COUNT];
-    uint16_t amtszLength;
     uint32_t expectedTxLength;
 } transactionContext_t;
 
@@ -129,15 +133,18 @@ union {
     cx_sha256_t sha2;
 } tmpContent;
 
-cx_sha3_t sha3;
+#define FCT_ADDRESS_LENGTH 52
+
 volatile uint8_t dataAllowed;
 volatile uint8_t fidoTransport;
+volatile char fullAddress[FCT_ADDRESS_LENGTH+1];
 volatile char addressSummary[32];
-volatile char fullAddress[53];
-volatile char fullAmount[50];
-volatile char maxFee[50];
+volatile char fullAmount[32];
+volatile char maxFee[16];
 volatile bool dataPresent;
 volatile bool skipWarning;
+volatile uint8_t addresses_type[MAX_OUTPUTS];
+volatile txContentAddress_t *addresses[MAX_OUTPUTS];
 
 bagl_element_t tmp_element;
 
@@ -162,8 +169,8 @@ WIDE internalStorage_t N_storage_real;
 #define N_storage (*(WIDE internalStorage_t *)PIC(&N_storage_real))
 
 
-static const char const SIGN_MAGIC[] = "\x19"
-                                       "Factoid Signed Message:\n";
+//static const char const SIGN_MAGIC[] = "\x19"
+//                                       "Factoid Signed Message:\n";
 
 const unsigned char hex_digits[] = {'0', '1', '2', '3', '4', '5', '6', '7',
                                     '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
@@ -267,7 +274,7 @@ const bagl_element_t ui_idle_blue[] = {
 
     // BADGE_MFW.GIF
     {{BAGL_ICON, 0x00, 135, 178, 50, 50, 0, 0, BAGL_FILL, 0, COLOR_BG_1, 0, 0},
-     &C_badge_ethereum,
+     &C_badge_mfw,
      0,
      0,
      0,
@@ -388,12 +395,14 @@ const ux_menu_entry_t menu_settings[] = {
 #endif // HAVE_U2F
 
 const ux_menu_entry_t menu_about[] = {
+    {NULL, NULL, 0, NULL, "MyFactomWallet", ".com", 0, 0},
     {NULL, NULL, 0, NULL, "Version", APPVERSION, 0, 0},
+    {NULL, NULL, 0, NULL, "ledger","@factoid.org", 0, 0},
     {menu_main, NULL, 2, &C_icon_back, "Back", NULL, 61, 40},
     UX_MENU_END};
 
 const ux_menu_entry_t menu_main[] = {
-    {NULL, NULL, 0, &C_icon_ethereum, "Use wallet to", "view accounts", 33, 12},
+    {NULL, NULL, 0, &C_icon_mfw, "Use MFW to", "view accounts", 33, 12},
     {menu_settings, NULL, 0, NULL, "Settings", NULL, 0, 0},
     {menu_about, NULL, 0, NULL, "About", NULL, 0, 0},
     {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
@@ -1428,79 +1437,8 @@ unsigned int ui_address_blue_button(unsigned int button_mask,
 #endif // #if defined(TARGET_BLUE)
 
 #if defined(TARGET_NANOS)
-const bagl_element_t ui_address_nanos[] = {
-    // type                               userid    x    y   w    h  str rad
-    // fill      fg        bg      fid iid  txt   touchparams...       ]
-    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
-      0, 0},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
 
-    {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_CROSS},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_CHECK},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    //{{BAGL_ICON                           , 0x01,  31,   9,  14,  14, 0, 0, 0
-    //, 0xFFFFFF, 0x000000, 0, BAGL_GLYPH_ICON_EYE_BADGE  }, NULL, 0, 0, 0,
-    //NULL, NULL, NULL },
-    {{BAGL_LABELINE, 0x01, 0, 12, 128, 12, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Confirm",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x01, 0, 26, 128, 12, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "address",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    {{BAGL_LABELINE, 0x02, 0, 12, 128, 12, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Address",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x02, 23, 26, 82, 12, 0x80 | 10, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 26},
-     (char *)fullAddress,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-};
+#include "ui_address_nanos.h"
 
 unsigned int ui_address_prepro(const bagl_element_t *element) {
     if (element->component.userid > 0) {
@@ -1526,6 +1464,20 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
 #endif // #if defined(TARGET_NANOS)
 
 #if defined(TARGET_NANOS)
+const char *const ui_approval_details[][2] = {
+    {"Output 1 Amount", (const char*)fullAmount}, {"Output 1 Address", (const char*)addressSummary},
+    {"Output 2 Amount", (const char*)fullAmount}, {"Output 2 Address", (const char*)addressSummary},
+    {"Output 3 Amount", (const char*)fullAmount}, {"Output 3 Address", (const char*)addressSummary},
+    {"Output 4 Amount", (const char*)fullAmount}, {"Output 4 Address", (const char*)addressSummary},
+    {"Output 5 Amount", (const char*)fullAmount}, {"Output 5 Address", (const char*)addressSummary},
+    {"Output 6 Amount", (const char*)fullAmount}, {"Output 6 Address", (const char*)addressSummary},
+    {"Output 7 Amount", (const char*)fullAmount}, {"Output 7 Address", (const char*)addressSummary},
+    {"Output 8 Amount", (const char*)fullAmount}, {"Output 8 Address", (const char*)addressSummary},
+    {"Output 9 Amount", (const char*)fullAmount}, {"Output 9 Address", (const char*)addressSummary},
+    {"Output 10 Amount", (const char*)fullAmount}, {"Output 10 Address", (const char*)addressSummary},
+    {"Fees", (const char*)maxFee},
+};
+
 const bagl_element_t ui_approval_nanos[] = {
     // type                               userid    x    y   w    h  str rad
     // fill      fg        bg      fid iid  txt   touchparams...       ]
@@ -1560,7 +1512,7 @@ const bagl_element_t ui_approval_nanos[] = {
 
     //{{BAGL_ICON                           , 0x01,  21,   9,  14,  14, 0, 0, 0
     //, 0xFFFFFF, 0x000000, 0, BAGL_GLYPH_ICON_TRANSACTION_BADGE  }, NULL, 0, 0,
-    //0, NULL, NULL, NULL },
+    // 0, NULL, NULL, NULL },
     {{BAGL_LABELINE, 0x01, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
      "Confirm",
@@ -1582,73 +1534,16 @@ const bagl_element_t ui_approval_nanos[] = {
 
     {{BAGL_LABELINE, 0x02, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "WARNING",
+     NULL, //"Amount",
      0,
      0,
      0,
      NULL,
      NULL,
      NULL},
-    {{BAGL_LABELINE, 0x02, 23, 26, 82, 12, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Data present",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    {{BAGL_LABELINE, 0x03, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Amount",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x03, 23, 26, 82, 12, 0x80 | 10, 0, 0, 0xFFFFFF, 0x000000,
+    {{BAGL_LABELINE, 0x12, 23, 26, 82, 12, 0x80 | 10, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 26},
-     (char *)fullAmount,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    {{BAGL_LABELINE, 0x04, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Address",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x04, 16, 26, 96, 12, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char *)addressSummary,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    {{BAGL_LABELINE, 0x05, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Maximum fees",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x05, 23, 26, 82, 12, 0x80 | 10, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 26},
-     (char *)maxFee,
+     NULL, //(char *)fullAmount,
      0,
      0,
      0,
@@ -1660,8 +1555,271 @@ const bagl_element_t ui_approval_nanos[] = {
 
 unsigned int ui_approval_prepro(const bagl_element_t *element) {
     unsigned int display = 1;
+    uint8_t offset = 0;
+    if (element->component.userid > 0) {
+        // display the meta element when at least bigger
+        display = (ux_step == element->component.userid - 1) ||
+                  (element->component.userid >= 0x02 && ux_step >= 1);
+        if (display) {
+            switch (element->component.userid) {
+            case 0x01:
+                UX_CALLBACK_SET_INTERVAL(1000);
+                break;
+            case 0x02:
+            case 0x12:
+                os_memmove(&tmp_element, element, sizeof(bagl_element_t));
+                display = ux_step - 1;
+                switch (display) {
+                case 0: // amount
+                    offset = 0;
+                    display_amount_offset:
+                    if ( addresses[offset] )
+                    {
+                        fct_print_amount(addresses[offset]->value,(int8_t*)fullAmount,sizeof(fullAmount));
+
+                        goto display_detail;
+                    }
+                case 1: // address
+                    offset = 0;
+                    display_address_offset:
+                    if ( addresses[offset] )
+                    {
+                        getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->rcdhash,(uint8_t*)fullAddress, addresses_type[offset]);
+
+                        os_memmove((void *)addressSummary, (void*)fullAddress, 10);
+                        os_memmove((void *)(addressSummary + 10), "..", 2);
+                        os_memmove((void *)(addressSummary + 12),
+                                   (void*)(fullAddress + FCT_ADDRESS_LENGTH - 4), 4);
+                        goto display_detail;
+                    }
+                display_detail:
+                    tmp_element.text =
+                        ui_approval_details[display]
+                                           [(element->component.userid) >> 4];
+                    break;
+                case 2:
+                    offset = 1;
+                    if ( addresses[offset] )
+                    {
+                        display = 2;
+                        goto display_amount_offset;
+                    }
+                // no break is intentional
+                case 3:
+                    offset = 1;
+                    if ( addresses[offset] )
+                    {
+                        display = 3;
+                        goto display_address_offset;
+                    }
+                case 4:
+                    offset = 2;
+                    if ( addresses[offset] )
+                    {
+                        display = 4;
+                        goto display_amount_offset;
+                    }
+                // no break is intentional
+                case 5:
+                    offset = 2;
+                    if ( addresses[offset] )
+                    {
+                        display = 5;
+                        goto display_address_offset;
+                    }
+                    // no break is intentional
+                case 6:
+                    offset = 3;
+                    if ( addresses[offset] )
+                    {
+                        display = 6;
+                        goto display_amount_offset;
+                    }
+                // no break is intentional
+                case 7:
+                    offset = 3;
+                    if ( addresses[offset] )
+                    {
+                        display = 7;
+                        goto display_address_offset;
+                    }
+
+                // no break is intentional
+                case 8:
+                    offset = 4;
+                    if ( addresses[offset] )
+                    {
+                        display = 8;
+                        goto display_amount_offset;
+                    }
+                    // no break is intentional
+                case 9:
+                    offset = 4;
+                    if ( addresses[offset] )
+                    {
+                        display = 9;
+                        goto display_address_offset;
+                    }
+
+                // no break is intentional
+                case 10:
+                    offset = 5;
+                    if ( addresses[offset] )
+                    {
+                        display = 10;
+                        goto display_amount_offset;
+                    }
+                    // no break is intentional
+                case 11:
+                    offset = 5;
+                    if ( addresses[offset] )
+                    {
+                        display = 11;
+                        goto display_address_offset;
+                    }
+                    // no break is intentional
+                case 12:
+                    offset = 6;
+                    if ( addresses[offset] )
+                    {
+                        display = 12;
+                        goto display_amount_offset;
+                    }
+                    // no break is intentional
+                case 13:
+                    offset = 6;
+                    if ( addresses[offset] )
+                    {
+                        display = 13;
+                        goto display_address_offset;
+                    }
+
+                    // no break is intentional
+                case 14:
+                    offset = 7;
+                    if ( addresses[offset] )
+                    {
+                        display = 14;
+                        goto display_amount_offset;
+                    }
+                    // no break is intentional
+                case 15:
+                    offset = 7;
+                    if ( addresses[offset] )
+                    {
+                        display = 15;
+                        goto display_address_offset;
+                    }
+                    // no break is intentional
+                case 16:
+                    offset = 8;
+                    if ( addresses[offset] )
+                    {
+                        display = 16;
+                        goto display_amount_offset;
+                    }
+                    // no break is intentional
+                case 17:
+                    offset = 8;
+                    if ( addresses[offset] )
+                    {
+                        display = 17;
+                        goto display_address_offset;
+                    }
+                    // no break is intentional
+                case 18:
+                    offset = 9;
+                    if ( addresses[offset] )
+                    {
+                        display = 18;
+                        goto display_amount_offset;
+                    }
+                    // no break is intentional
+                case 19:
+                    offset = 9;
+                    if ( addresses[offset] )
+                    {
+                        display = 19;
+                        goto display_address_offset;
+                    }
+                // no break is intentional
+                case 20: // fees
+                    display = 20;
+                    goto display_detail;
+                }
+
+                UX_CALLBACK_SET_INTERVAL(MAX(
+                    2000,
+                    1000 + bagl_label_roundtrip_duration_ms(&tmp_element, 7)));
+                return &tmp_element;
+            }
+        }
+    }
+    return display;
+}
+
+
+const bagl_element_t ui_approval_nanos_ec[] = {
+    // type                               userid    x    y   w    h  str rad
+    // fill      fg        bg      fid iid  txt   touchparams...       ]
+    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
+      0, 0},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_CROSS},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_CHECK},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    //{{BAGL_ICON                           , 0x01,  21,   9,  14,  14, 0, 0, 0
+    //, 0xFFFFFF, 0x000000, 0, BAGL_GLYPH_ICON_TRANSACTION_BADGE  }, NULL, 0, 0,
+    // 0, NULL, NULL, NULL },
+    {{BAGL_LABELINE, 0x01, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     "Confirm",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     (char*)addressSummary,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+};
+
+
+unsigned int ui_approval_prepro_ec(const bagl_element_t *element) {
+    unsigned int display = 1;
     if (element->component.userid > 0) {
         display = (ux_step == element->component.userid - 1);
+        //if we are on the address and amount then repeat for all outputs
         if (display) {
             switch (element->component.userid) {
             case 1:
@@ -1691,6 +1849,7 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
     }
     return display;
 }
+
 
 unsigned int ui_approval_nanos_button(unsigned int button_mask,
                                       unsigned int button_mask_counter);
@@ -1777,33 +1936,40 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
 }
 #endif // #if defined(TARGET_NANOS)
 
-unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e) {
+unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
+{
     uint8_t privateKeyData[64];
-    uint8_t signature[1024];
     uint16_t signatureLength = 0;
     cx_ecfp_private_key_t privateKey;
-    uint8_t rLength, sLength, rOffset, sOffset;
 
     os_perso_derive_node_bip32(
         CX_CURVE_Ed25519, 
-	tmpCtx.transactionContext.bip32Path,
+        tmpCtx.transactionContext.bip32Path,
         tmpCtx.transactionContext.pathLength, 
-	privateKeyData, NULL);
+        privateKeyData, NULL);
     cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
 
     //store signature in 35..97
+#ifdef LEGACY_SUPPORT
     signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
-		                    tmpCtx.transactionContext.rawTx,
-		                    tmpCtx.transactionContext.rawTxLength,
-		                    &G_io_apdu_buffer[35]);
+                            tmpCtx.transactionContext.rawTx,
+                            tmpCtx.transactionContext.rawTxLength,
+                            &G_io_apdu_buffer[35]);
+#else
+    signatureLength = cx_eddsa_sign(&privateKey, CX_LAST, CX_SHA512,
+                            tmpCtx.transactionContext.rawTx,
+                            tmpCtx.transactionContext.rawTxLength,
+			    NULL, 0,
+                            &G_io_apdu_buffer[35], NULL);
+#endif
 
-    cx_ecfp_generate_pair(CX_CURVE_Ed25519, &tmpCtx.publicKeyContext.publicKey,
+    cx_ecfp_generate_pair(CX_CURVE_Ed25519,
+                         &tmpCtx.publicKeyContext.publicKey,
                          &privateKey, 1);
 
     os_memset(&privateKey, 0, sizeof(privateKey));
 
-#if 1 
     //return length of signature in 33..34, should be 64
     G_io_apdu_buffer[33] = (uint8_t)(signatureLength >> 8);
     G_io_apdu_buffer[34] = (uint8_t)(signatureLength);
@@ -1811,10 +1977,9 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e) {
 
     //Return RCD in 0..33
     getRCDFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
-                               G_io_apdu_buffer, 
-			       33, PUBLIC_OFFSET_FCT);
+                               G_io_apdu_buffer, 33);
     signatureLength+=33;
-#endif
+
     //append success 
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
@@ -1830,13 +1995,73 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e) {
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
 #endif // HAVE_U2F
+
     // Display back the original UX
     ui_idle();
 
     return 0; // do not redraw the widget
 }
 
-unsigned int io_seproxyhal_touch_tx_cancel(const bagl_element_t *e) {
+unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
+{
+    uint8_t privateKeyData[64];
+    uint16_t signatureLength = 0;
+    cx_ecfp_private_key_t privateKey;
+
+    os_perso_derive_node_bip32(
+        CX_CURVE_Ed25519,
+        tmpCtx.transactionContext.bip32Path,
+        tmpCtx.transactionContext.pathLength,
+        privateKeyData, NULL);
+    cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
+    os_memset(privateKeyData, 0, sizeof(privateKeyData));
+
+    //store signature in 34..96
+    signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
+                            tmpCtx.transactionContext.rawTx,
+                            tmpCtx.transactionContext.rawTxLength - EC_PUBLIC_KEY_LENGTH,
+                            &G_io_apdu_buffer[34]);
+
+    cx_ecfp_generate_pair(CX_CURVE_Ed25519,
+                         &tmpCtx.publicKeyContext.publicKey,
+                         &privateKey, 1);
+
+    os_memset(&privateKey, 0, sizeof(privateKey));
+
+    //return length of signature in 32..32, should be 64
+    G_io_apdu_buffer[32] = (uint8_t)(signatureLength >> 8);
+    G_io_apdu_buffer[33] = (uint8_t)(signatureLength);
+    signatureLength += 2;
+
+    //Return RCD in 0..33
+    getECKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+                               G_io_apdu_buffer, 32);
+    signatureLength+=32;
+
+    //append success
+    G_io_apdu_buffer[signatureLength++] = 0x90;
+    G_io_apdu_buffer[signatureLength++] = 0x00;
+
+#ifdef HAVE_U2F
+    if (fidoActivated) {
+        u2f_proxy_response((u2f_service_t *)&u2fService, signatureLength);
+    } else {
+        // Send back the response, do not restart the event loop
+        io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
+    }
+#else  // HAVE_U2F
+    // Send back the response, do not restart the event loop
+    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
+#endif // HAVE_U2F
+
+    // Display back the original UX
+    ui_idle();
+
+    return 0; // do not redraw the widget
+}
+
+unsigned int io_seproxyhal_touch_tx_cancel(const bagl_element_t *e)
+{
     G_io_apdu_buffer[0] = 0x69;
     G_io_apdu_buffer[1] = 0x85;
 #ifdef HAVE_U2F
@@ -1874,22 +2099,42 @@ void ui_approval_transaction_blue_init(void) {
 
 #elif defined(TARGET_NANOS)
 unsigned int ui_approval_nanos_button(unsigned int button_mask,
-                                      unsigned int button_mask_counter) {
-    switch (button_mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        io_seproxyhal_touch_tx_cancel(NULL);
-        break;
+                                      unsigned int button_mask_counter)
+{
+    switch (button_mask)
+    {
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT:
+            io_seproxyhal_touch_tx_cancel(NULL);
+            break;
 
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
-        io_seproxyhal_touch_tx_ok(NULL);
-        break;
+        case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
+        {
+            io_seproxyhal_touch_tx_ok(NULL);
+            break;
+        }
     }
-    }
+
     return 0;
 }
 
+unsigned int ui_approval_nanos_ec_button(unsigned int button_mask,
+                                       unsigned int button_mask_counter)
+{
+    switch (button_mask)
+    {
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT:
+            io_seproxyhal_touch_tx_cancel(NULL);
+            break;
 
+        case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
+        {
+            io_seproxyhal_touch_ec_tx_ok(NULL);
+            break;
+        }
+    }
 
+    return 0;
+}
 #endif // #if defined(TARGET_NANOS)
 
 unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
@@ -1943,7 +2188,7 @@ void convertUint256BE(uint8_t *data, uint32_t length, uint256_t *target) {
 
 void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
                         uint16_t dataLength, 
-			volatile unsigned int *flags,
+                        volatile unsigned int *flags,
                         volatile unsigned int *tx) {
     UNUSED(dataLength);
     uint8_t privateKeyData[32];
@@ -1951,13 +2196,16 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     uint32_t bip32Path[MAX_BIP32_PATH];
     uint8_t bip32PathLength = *(dataBuffer++);
 
-    if ((bip32PathLength < 0x01) || (bip32PathLength > MAX_BIP32_PATH)) {
+    if ((bip32PathLength < 0x01) || (bip32PathLength > MAX_BIP32_PATH))
+    {
         THROW(0x6a80);
     }
-    if ((p1 != P1_CONFIRM) && (p1 != P1_NON_CONFIRM)) {
+    if ((p1 != P1_CONFIRM) && (p1 != P1_NON_CONFIRM))
+    {
         THROW(0x6B00);
     }
-    if ((p2 != P2_CHAINCODE) && (p2 != P2_NO_CHAINCODE)) {
+    if ((p2 != P2_CHAINCODE) && (p2 != P2_NO_CHAINCODE))
+    {
         THROW(0x6B00);
     }
     //walk through the path 
@@ -1995,28 +2243,37 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     os_memset(&privateKey, 0, sizeof(privateKey));
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
 
-    //The public key generated is 64 bytes not 32, so compress it 
-    //and convert to an rcd
-    uint8_t rcd[33];
-    getRCDFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
-		               rcd, sizeof(rcd),keytype);
+    if ( keytype == PUBLIC_OFFSET_FCT )
+    {
+        //The public key generated is 64 bytes not 32, so compress it
+        //and convert to an rcd
+        uint8_t rcd[33];
+        getRCDFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+                                   rcd, sizeof(rcd));
 
-    //make the compressed key the new key.
-    os_memset(tmpCtx.publicKeyContext.publicKey.W, 0, 65);
-    tmpCtx.publicKeyContext.publicKey.W_len = sizeof(rcd);
-    os_memmove(tmpCtx.publicKeyContext.publicKey.W, rcd,sizeof(rcd));
-    
-#if 0 
-    getFctAddressStringFromKey(&tmpCtx.publicKeyContext.publicKey,
-                                tmpCtx.publicKeyContext.address, 
-				PRIVATE_OFFSET_FCT);
-#else
+        //make the compressed key the new key.
+        os_memset(tmpCtx.publicKeyContext.publicKey.W, 0, 65);
+        tmpCtx.publicKeyContext.publicKey.W_len = sizeof(rcd);
+        os_memmove(tmpCtx.publicKeyContext.publicKey.W, rcd,sizeof(rcd));
+    }
+    else
+    {
+        uint8_t key[32];
+        getECKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+                                   key, sizeof(key));
+        //make the compressed key the new key.
+        os_memset(tmpCtx.publicKeyContext.publicKey.W, 0, 65);
+        tmpCtx.publicKeyContext.publicKey.W_len = sizeof(key);
+        os_memmove(tmpCtx.publicKeyContext.publicKey.W, key,sizeof(key));
+
+    }
+
     //convert the public key to an address
-    //publicKey is RCD
+    //publicKey is RCD or EC Key
     getFctAddressStringFromKey(&tmpCtx.publicKeyContext.publicKey,
                                 tmpCtx.publicKeyContext.address, 
 				keytype);
-#endif
+
 
     //tmpCtx.publicKeyContext.publicKey.W[0] = bip32Path[1];
     //tmpCtx.publicKeyContext.publicKey.W_len = 1;
@@ -2033,7 +2290,7 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
                  tmpCtx.publicKeyContext.address);
         UX_DISPLAY(ui_address_blue, ui_address_blue_prepro);
 #elif defined(TARGET_NANOS)
-        snprintf(fullAddress, sizeof(fullAddress), " %.*s ", 52,
+        snprintf((char*)fullAddress, sizeof(fullAddress), " %.*s ", 52,
                  tmpCtx.publicKeyContext.address);
         ux_step = 0;
         ux_step_count = 2;
@@ -2065,12 +2322,14 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
                 uint16_t dataLength, volatile unsigned int *flags,
                 volatile unsigned int *tx) {
     UNUSED(tx);
-    uint8_t addressLength;
-    uint32_t i;
+    *tx = 0;
+    
+    uint32_t keytype =  PUBLIC_OFFSET_FCT;
+
     switch (p1)
     {
     case P1_FIRST: 
-	os_memset(&tmpCtx.transactionContext,0,sizeof(tmpCtx.transactionContext));
+        os_memset(&tmpCtx.transactionContext,0,sizeof(tmpCtx.transactionContext));
 
         tmpCtx.transactionContext.pathLength = workBuffer[0];
         if ((tmpCtx.transactionContext.pathLength < 0x01) ||
@@ -2079,19 +2338,11 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         }
         workBuffer++;
         dataLength--;
-	//now extract the total length of the work buffer
-	if ( dataLength < 2 )
-	{
-            THROW(0x6b80);
-	}
-	uint16_t totaltxlen = workBuffer[0] << 8 | workBuffer[1];
-	workBuffer += 2;
-	dataLength -= 2;
-
-	//now extract the pathing information
-        for (i = 0; i < tmpCtx.transactionContext.pathLength; i++) {
+        
+        //now extract the pathing information
+        for (int i = 0; i < tmpCtx.transactionContext.pathLength; i++) {
             tmpCtx.transactionContext.bip32Path[i] =
-                (workBuffer[0] << 24) | 
+                (workBuffer[0] << 24) |
                 (workBuffer[1] << 16) |
                 (workBuffer[2] << 8)  |
                 (workBuffer[3]);
@@ -2099,52 +2350,51 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             dataLength -= 4;
         }
         tmpCtx.transactionContext.curve = CX_CURVE_Ed25519;
-	tmpCtx.transactionContext.rawTxLength = dataLength;
+        tmpCtx.transactionContext.rawTxLength = dataLength;
 
-	tmpCtx.transactionContext.expectedTxLength = totaltxlen;
+        if ( (uint8_t)tmpCtx.transactionContext.bip32Path[1] == 0x84 )
+        {
+            keytype = PUBLIC_OFFSET_EC;
+        }
+
+        if ( dataLength > MAX_RAW_TX )
+        {
+            THROW(BTCHIP_SW_NOT_ENOUGH_MEMORY_SPACE);
+        }
+
         os_memmove(tmpCtx.transactionContext.rawTx, workBuffer, dataLength);
+        if ( (uint8_t)tmpCtx.transactionContext.bip32Path[1] != 0x83 )
+        {
+            THROW(BTCHIP_SW_INCORRECT_DATA);
+        }
+    break;
 
-        THROW(0x9000);
-	break;
     case P1_MORE: 
-	if ( tmpCtx.transactionContext.rawTxLength  > sizeof(tmpCtx.transactionContext.rawTx) )
-	{
+        if ( tmpCtx.transactionContext.rawTxLength  > sizeof(tmpCtx.transactionContext.rawTx) )
+        {
            os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
-	   //Transaction too large for device
-	   THROW(0x6A80);
-	}	
+           //Transaction too large for device
+           THROW(0x6A80);
+        }
         os_memmove(&tmpCtx.transactionContext.rawTx[tmpCtx.transactionContext.rawTxLength],
                    workBuffer, dataLength);
-	tmpCtx.transactionContext.rawTxLength += dataLength;
+        tmpCtx.transactionContext.rawTxLength += dataLength;
+    break;
 
-	//continue
-        THROW(0x9000);
-	break;
-    case P1_LAST:   
-	/*
-	txContent.fees = (workBuffer[0] << 24) |
-                         (workBuffer[1] << 16) |
-                         (workBuffer[2] << 8)  |
-                         (workBuffer[3]);
-        workBuffer += 4;
-        dataLength -= 4;
-	*/
-
-        os_memmove(&tmpCtx.transactionContext.amtsz[tmpCtx.transactionContext.amtszLength],
-                   workBuffer, dataLength);
-	tmpCtx.transactionContext.amtszLength += dataLength;
-	if ( p2 == 0 ) {
-            THROW(0x9000);
-	}
-	break;
     default:
         THROW(0x6B00);
     };
 
+
+    if ( p2 == 0 ) {
+        THROW(0x9000);
+    }
+
+#if WANT_INVALID_BUFFER_CHECK
     if ( tmpCtx.transactionContext.expectedTxLength < tmpCtx.transactionContext.rawTxLength )
     {
-	//too little data
-        THROW(0x6B00 | tmpCtx.transactionContext.rawTxLength);
+        //too little data
+        THROW(0x6B00);
     }
     else if ( tmpCtx.transactionContext.expectedTxLength > 
 		    tmpCtx.transactionContext.rawTx )
@@ -2153,68 +2403,209 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         THROW(0x6C80);
     }
     else
-    {
-        //just right
-        int ret = parseTx(tmpCtx.transactionContext.rawTx, 
-			  tmpCtx.transactionContext.rawTxLength, 
-			  tmpCtx.transactionContext.amtsz,
-			  tmpCtx.transactionContext.amtszLength,
-			  &txContent); 
-	if ( ret != USTREAM_FINISHED) {
-            THROW(ret);
-	}
-    }
-
-    if ( *txContent.header.inputcount < 1 )
-    {
-        THROW(0x6C81);
-    }
-    for ( int i = 0; i < *txContent.header.inputcount;++i )
-    {
-        //TODO: if input > 1?
-        //Also need to verify input address to device address
-        fct_print_amount(txContent.inputs[i].value, fullAmount, sizeof(fullAmount));
-	getFctAddressStringFromRCDHash(txContent.inputs[i].rcdhash, tmpCtx.publicKeyContext.address, PUBLIC_OFFSET_FCT);
-    }
-    addressLength = 52;
-    fct_print_amount(txContent.fees, maxFee, sizeof(maxFee));
-
-    for ( int i = 0; i < *txContent.header.outputcount;++i )
-    {
-        //fct_print_amount(txContent.inputs[i].value, fullAmount, sizeof(fullAmount));
-	//getFctAddressStringFromRCDHash(txContent.inputs[i].rcdhash, tmpCtx.publicKeyContext.address, PUBLIC_OFFSET_FCT);
-    }
-	    
-#if defined(TARGET_BLUE)
-    strcpy(fullAddress, tmpCtx.publicKeyContext.address);
-
-#elif defined(TARGET_NANOS)
-    os_memset(addressSummary, 0, sizeof(addressSummary));
-    os_memmove((void *)addressSummary, tmpCtx.publicKeyContext.address, 5);
-    os_memmove((void *)(addressSummary + 5), "...", 3);
-    os_memmove((void *)(addressSummary + 8),
-               tmpCtx.publicKeyContext.address + addressLength - 4, 4);
 #endif
+
+    int ret = parseTx(tmpCtx.transactionContext.rawTx,
+                       tmpCtx.transactionContext.rawTxLength,
+                       &txContent);
+    if ( ret != USTREAM_FINISHED)
+    {
+        THROW(ret);
+    }
+
+
+    if ( txContent.header.inputcount < 1 )
+    {
+        THROW(USTREAM_FAULT_INPUT_COUNT);
+    }
+
+
+    if ( txContent.header.outputcount + txContent.header.ecpurchasecount > MAX_OUTPUTS )
+    {
+        THROW(USTREAM_FAULT_TOO_MANY_OUTPUTS);
+    }
+
+    // "confirm", amount, address, ..., amount[n], address[n], fee
+    os_memset((void*)addressSummary, 0, sizeof(addressSummary));
+    os_memset((void*)fullAmount, 0, sizeof(fullAmount));
+    for ( int i = 0; i < MAX_OUTPUTS; ++i )
+    {
+        addresses[i] = NULL;
+    }
+
+    ux_step_count = 2;
+    ux_step = 0;
+
+    fct_print_amount(txContent.fees, (int8_t*)maxFee, sizeof(maxFee));
+
+
+    int output_ct = 0;
+    for ( int i = 0; i < txContent.header.outputcount;++i )
+    {
+        addresses_type[output_ct] = PUBLIC_OFFSET_FCT;
+        addresses[output_ct++] = &txContent.outputs[i];
+        ux_step_count += 2;
+    }
+
+    for ( int i = 0; i < txContent.header.ecpurchasecount;++i )
+    {
+
+        addresses_type[output_ct] = PUBLIC_OFFSET_EC;
+        addresses[output_ct++] = &txContent.ecpurchase[i];
+        ux_step_count += 2;
+    }
 
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
 #elif defined(TARGET_NANOS)
-    ux_step = 0;
-    // "confirm", amount, address, [sourcetag], [destinationtag], fees
-    ux_step_count = 4;
-//    if (txContent.sourceTagPresent) {
-        ux_step_count++;
-//    }
-//    if (txContent.destinationTagPresent) {
-//        ux_step_count++;
-//    }
+
     UX_DISPLAY(ui_approval_nanos, ui_approval_prepro);
+
 #endif // #if TARGET
 
     *flags |= IO_ASYNCH_REPLY;
+    *tx = 0;
 
 }
+
+
+void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
+                  uint16_t dataLength,
+                  volatile unsigned int *flags,
+                  volatile unsigned int *tx)
+{
+    UNUSED(tx);
+    *tx = 0;
+
+    switch (p1)
+    {
+    case P1_FIRST:
+        os_memset(&tmpCtx.transactionContext,0,sizeof(tmpCtx.transactionContext));
+
+        tmpCtx.transactionContext.pathLength = workBuffer[0];
+        if ((tmpCtx.transactionContext.pathLength < 0x01) ||
+            (tmpCtx.transactionContext.pathLength > MAX_BIP32_PATH))
+        {
+            THROW(0x6a80);
+        }
+        workBuffer++;
+        dataLength--;
+
+        //now extract the pathing information
+        for (int i = 0; i < tmpCtx.transactionContext.pathLength; i++)
+        {
+            tmpCtx.transactionContext.bip32Path[i] =
+                (workBuffer[0] << 24) |
+                (workBuffer[1] << 16) |
+                (workBuffer[2] << 8)  |
+                (workBuffer[3]);
+            workBuffer += 4;
+            dataLength -= 4;
+        }
+        tmpCtx.transactionContext.curve = CX_CURVE_Ed25519;
+        tmpCtx.transactionContext.rawTxLength = dataLength;
+
+        if ( dataLength > MAX_RAW_TX )
+        {
+            THROW(BTCHIP_SW_NOT_ENOUGH_MEMORY_SPACE);
+        }
+
+        os_memmove(tmpCtx.transactionContext.rawTx, workBuffer, dataLength);
+        if ( (uint8_t)tmpCtx.transactionContext.bip32Path[1] != 0x84 )
+        {
+            THROW(BTCHIP_SW_INCORRECT_DATA);
+        }
+        break;
+    case P1_MORE:
+        if ( tmpCtx.transactionContext.rawTxLength  > sizeof(tmpCtx.transactionContext.rawTx) )
+        {
+            os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
+            //Transaction too large for device
+            THROW(0x6A80);
+        }
+        os_memmove(&tmpCtx.transactionContext.rawTx[tmpCtx.transactionContext.rawTxLength],
+                   workBuffer, dataLength);
+        tmpCtx.transactionContext.rawTxLength += dataLength;
+        break;
+    default:
+        THROW(0x6B00);
+    };
+
+    if ( (p2&0x02) == 0 ) 
+    {
+        THROW(0x9000);
+    }
+
+
+
+    cx_ecfp_public_key_t pubkey;
+    pubkey.W_len = 32;
+
+    if ( p2&0x01 )
+    {
+        //this means we have a chain commit
+        txCcContent_t txCcContent;
+        int ret = parseCcTx(tmpCtx.transactionContext.rawTx,
+                          tmpCtx.transactionContext.rawTxLength,
+                          &txCcContent);
+        if ( ret != USTREAM_FINISHED)
+        {
+            THROW(ret);
+        }
+
+	snprintf(addressSummary,sizeof(addressSummary),"Sign Chain?");
+        //os_memmove(pubkey.W,txCcContent.ecpubkey,pubkey.W_len);
+
+    }
+    else //otherwise entry commit
+    {
+        txEcContent_t txEcContent;
+        int ret = parseEcTx(tmpCtx.transactionContext.rawTx,
+                          tmpCtx.transactionContext.rawTxLength,
+                          &txEcContent);
+        if ( ret != USTREAM_FINISHED)
+        {
+            THROW(ret);
+        }
+
+        //os_memmove(pubkey.W,txEcContent.ecpubkey,pubkey.W_len);
+	snprintf(addressSummary,sizeof(addressSummary),"Sign Entry?");
+
+    }
+
+
+
+#if WANT_REDUNDANT_DISPALY_OF_EC_ADDRESS
+    char addr[64];
+    getFctAddressStringFromKey(&pubkey,addr,PUBLIC_OFFSET_EC);
+
+    os_memset((void *) addressSummary, 0, sizeof(addressSummary));
+    os_memmove((void *) addressSummary, addr, 10);
+    os_memmove((void *)(addressSummary + 10), "..", 2);
+    os_memmove((void *)(addressSummary + 12),
+                        addr + addressLength - 4, 4);
+    ux_step_count = 2; 
+#else
+    ux_step_count = 0;
+#endif
+    ux_step = 0;
+
+
+#if defined(TARGET_BLUE)
+    ux_step_count = 0;
+    ui_approval_transaction_blue_init();
+#elif defined(TARGET_NANOS)
+
+    UX_DISPLAY(ui_approval_nanos_ec, ui_approval_prepro_ec);
+
+#endif // #if TARGET
+
+    *flags |= IO_ASYNCH_REPLY;
+    *tx = 0;
+
+}
+
 
 void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
     unsigned short sw = 0;
@@ -2235,6 +2626,12 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
 
             case INS_SIGN:
                 handleSign(G_io_apdu_buffer[OFFSET_P1],
+                           G_io_apdu_buffer[OFFSET_P2],
+                           G_io_apdu_buffer + OFFSET_CDATA,
+                           G_io_apdu_buffer[OFFSET_LC], flags, tx);
+                break;
+            case INS_COMMIT_SIGN:
+                handleCommitSign(G_io_apdu_buffer[OFFSET_P1],
                            G_io_apdu_buffer[OFFSET_P2],
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);

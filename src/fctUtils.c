@@ -1,6 +1,7 @@
 /*******************************************************************************
-*   Ledger Blue
-*   (c) 2017 MyFactomWallet
+*   Factom Wallet
+*   (c) 2018 The Factoid Authority
+*            ledger@factoid.org
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -23,100 +24,17 @@
  * @date 25th of October 2017
  */
 
-#include "os.h"
-#include "cx.h"
+
 #include <stdbool.h>
 #include "fctUtils.h"
 #include "btchip_base58.h"
 
-bool rlpCanDecode(uint8_t *buffer, uint32_t bufferLength, bool *valid) {
-    if (*buffer <= 0x7f) {
-    } else if (*buffer <= 0xb7) {
-    } else if (*buffer <= 0xbf) {
-        if (bufferLength < (1 + (*buffer - 0xb7))) {
-            return false;
-        }
-        if (*buffer > 0xbb) {
-            *valid = false; // arbitrary 32 bits length limitation
-            return true;
-        }
-    } else if (*buffer <= 0xf7) {
-    } else {
-        if (bufferLength < (1 + (*buffer - 0xf7))) {
-            return false;
-        }
-        if (*buffer > 0xfb) {
-            *valid = false; // arbitrary 32 bits length limitation
-            return true;
-        }
-    }
-    *valid = true;
-    return true;
-}
 
-bool rlpDecodeLength(uint8_t *buffer, uint32_t bufferLength,
-                     uint32_t *fieldLength, uint32_t *offset, bool *list) {
-    if (*buffer <= 0x7f) {
-        *offset = 0;
-        *fieldLength = 1;
-        *list = false;
-    } else if (*buffer <= 0xb7) {
-        *offset = 1;
-        *fieldLength = *buffer - 0x80;
-        *list = false;
-    } else if (*buffer <= 0xbf) {
-        *offset = 1 + (*buffer - 0xb7);
-        *list = false;
-        switch (*buffer) {
-        case 0xb8:
-            *fieldLength = *(buffer + 1);
-            break;
-        case 0xb9:
-            *fieldLength = (*(buffer + 1) << 8) + *(buffer + 2);
-            break;
-        case 0xba:
-            *fieldLength =
-                (*(buffer + 1) << 16) + (*(buffer + 2) << 8) + *(buffer + 3);
-            break;
-        case 0xbb:
-            *fieldLength = (*(buffer + 1) << 24) + (*(buffer + 2) << 16) +
-                           (*(buffer + 3) << 8) + *(buffer + 4);
-            break;
-        default:
-            return false; // arbitrary 32 bits length limitation
-        }
-    } else if (*buffer <= 0xf7) {
-        *offset = 1;
-        *fieldLength = *buffer - 0xc0;
-        *list = true;
-    } else {
-        *offset = 1 + (*buffer - 0xf7);
-        *list = true;
-        switch (*buffer) {
-        case 0xf8:
-            *fieldLength = *(buffer + 1);
-            break;
-        case 0xf9:
-            *fieldLength = (*(buffer + 1) << 8) + *(buffer + 2);
-            break;
-        case 0xfa:
-            *fieldLength =
-                (*(buffer + 1) << 16) + (*(buffer + 2) << 8) + *(buffer + 3);
-            break;
-        case 0xfb:
-            *fieldLength = (*(buffer + 1) << 24) + (*(buffer + 2) << 16) +
-                           (*(buffer + 3) << 8) + *(buffer + 4);
-            break;
-        default:
-            return false; // arbitrary 32 bits length limitation
-        }
-    }
-
-    return true;
-}
+const uint32_t MAX_TXN_SIZE = 10275;
 
 void getFctAddressFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
-                          cx_sha3_t *sha3Context) {
+                          cx_sha3_t *sha3Context) 
+{
     uint8_t hashAddress[32];
     cx_keccak_init(sha3Context, 256);
     cx_hash((cx_hash_t *)sha3Context, CX_LAST, publicKey->W + 1, 64,
@@ -155,9 +73,28 @@ void sha256d(uint8_t *data, uint32_t len, uint8_t *out)
     cx_hash_sha256(in,32,out);
 }
 
+void getECKeyFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
+                                uint8_t *out, uint8_t len)
+{
+    if ( len < 32 )
+    {
+        THROW(0x60ED);
+    }
+    if (publicKey->curve == CX_CURVE_Ed25519 && publicKey->W[0] != 0xED)
+    {
+        for (uint8_t i = 0; i < 32; i++)
+        {
+            out[i] = publicKey->W[64 - i];
+        }
+        if ((publicKey->W[32] & 1) != 0)
+        {
+            out[31] |= 0x80;
+        }
+    }
+}
 
 void getRCDFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
-	                      uint8_t *out, uint8_t len, uint8_t keytype)
+                              uint8_t *out, uint8_t len)
 {
     if ( len < 33 )
     {
@@ -165,18 +102,15 @@ void getRCDFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
     }
     if (publicKey->curve == CX_CURVE_Ed25519 && publicKey->W[0] != 0xED) 
     {
-	int offset = 0;
-	if ( keytype == PUBLIC_OFFSET_FCT )
-	{
-            out[0] = 0x01;//RCD key type 1
-	    offset = 1;
-	}
+        int offset = 1;
+        out[0] = 0x01;//RCD key type 1
+
         for (uint8_t i = 0; i < 32; i++) 
-	{
+        {
             out[i + offset] = publicKey->W[64 - i];
-	}
+        }
         if ((publicKey->W[32] & 1) != 0) 
-	{
+        {
             out[31 + offset] |= 0x80;
         }
     }
@@ -202,14 +136,22 @@ void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, uint8_t keyty
 
 void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
                                 uint8_t keytype) {
-    uint8_t address[38];//prefix(2 bytes) + RCD_hash(32 bytes) + checksum(4 bytes)
+    uint8_t address[38];//FCT: prefix(2 bytes) + RCD_hash(32 bytes) + checksum(4 bytes)
+                        // EC: prefix(2 bytes) + Pub Key (32 bytes) + checksum(4 bytes)
     uint8_t checksum[32];
 
     //https://github.com/FactomProject/FactomDocs/blob/master/factomDataStructureDetails.md
     
     //1) Concatenate 0x5fb1 and the RCD Hash bytewise
     *(uint16_t*)address = g_factom_key_prefix[keytype];
-    sha256d(publicKey->W, publicKey->W_len, &address[2]);
+    if ( keytype == PUBLIC_OFFSET_FCT )
+    {
+        sha256d(publicKey->W, publicKey->W_len, &address[2]);
+    }
+    else
+    {
+        os_memmove(&address[2], publicKey->W, publicKey->W_len);
+    }
     
 
     //2) Take the SHA256d of the above data. Append the first 4 bytes of 
@@ -224,94 +166,157 @@ void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
 }
 
 bool adjustDecimals(char *src, uint32_t srcLength, char *target,
-                    uint32_t targetLength, uint8_t decimals) {
+                    uint32_t targetLength, uint8_t decimals)
+{
     uint32_t startOffset;
     uint32_t lastZeroOffset = 0;
     uint32_t offset = 0;
-    if ((srcLength == 1) && (*src == '0')) {
-        if (targetLength < 2) {
+    if ((srcLength == 1) && (*src == '0'))
+    {
+        if (targetLength < 2)
+        {
             return false;
         }
         target[0] = '0';
         target[1] = '\0';
         return true;
     }
-    if (srcLength <= decimals) {
+    if (srcLength <= decimals)
+    {
         uint32_t delta = decimals - srcLength;
-        if (targetLength < srcLength + 1 + 2 + delta) {
+        if (targetLength < srcLength + 1 + 2 + delta)
+        {
             return false;
         }
         target[offset++] = '0';
         target[offset++] = '.';
-        for (uint32_t i = 0; i < delta; i++) {
+        for (uint32_t i = 0; i < delta; i++)
+        {
             target[offset++] = '0';
         }
         startOffset = offset;
-        for (uint32_t i = 0; i < srcLength; i++) {
+        for (uint32_t i = 0; i < srcLength; i++)
+        {
             target[offset++] = src[i];
         }
         target[offset] = '\0';
-    } else {
+    }
+    else
+    {
         uint32_t sourceOffset = 0;
         uint32_t delta = srcLength - decimals;
-        if (targetLength < srcLength + 1 + 1) {
+        if (targetLength < srcLength + 1 + 1)
+        {
             return false;
         }
-        while (offset < delta) {
+        while (offset < delta)
+        {
             target[offset++] = src[sourceOffset++];
         }
-        if (decimals != 0) {
+        if (decimals != 0)
+        {
             target[offset++] = '.';
         }
         startOffset = offset;
-        while (sourceOffset < srcLength) {
+        while (sourceOffset < srcLength)
+        {
             target[offset++] = src[sourceOffset++];
         }
-	target[offset] = '\0';
+        target[offset] = '\0';
     }
-    for (uint32_t i = startOffset; i < offset; i++) {
-        if (target[i] == '0') {
-            if (lastZeroOffset == 0) {
+    for (uint32_t i = startOffset; i < offset; i++)
+    {
+        if (target[i] == '0')
+        {
+            if (lastZeroOffset == 0)
+            {
                 lastZeroOffset = i;
             }
-        } else {
+        }
+        else
+        {
             lastZeroOffset = 0;
         }
     }
-    if (lastZeroOffset != 0) {
+    if (lastZeroOffset != 0)
+    {
         target[lastZeroOffset] = '\0';
-        if (target[lastZeroOffset - 1] == '.') {
+        if (target[lastZeroOffset - 1] == '.')
+        {
             target[lastZeroOffset - 1] = '\0';
         }
     }
     return true;
 }
 
-unsigned short fct_print_amount(uint64_t amount, uint8_t *out,
-                                uint32_t outlen) {
+unsigned short fct_print_amount(uint64_t amount, int8_t *out,
+                                uint32_t outlen)
+{
     char tmp[20];
     char tmp2[25];
     uint32_t numDigits = 0, i;
     uint64_t base = 1;
-    while (base <= amount) {
+    while (base <= amount)
+    {
         base *= 10;
         numDigits++;
     }
-    if (numDigits > sizeof(tmp) - 1) {
+    if (numDigits > sizeof(tmp) - 1)
+    {
         THROW(EXCEPTION);
     }
     base /= 10;
-    for (i = 0; i < numDigits; i++) {
+    for (i = 0; i < numDigits; i++)
+    {
         tmp[i] = '0' + ((amount / base) % 10);
         base /= 10;
     }
     tmp[i] = '\0';
-    strcpy(tmp2, "FCT ");
-    adjustDecimals(tmp, i, tmp2 + 4, 25, 6);
-    if (strlen(tmp2) < outlen - 1) {
+
+    strcpy(tmp2, "FCT "); //"ғ"
+    adjustDecimals(tmp, i, tmp2 + 4, 25, 8);
+    if (strlen(tmp2) < outlen - 1)
+    {
         strcpy(out, tmp2);
-    } else {
+    }
+    else
+    {
         out[0] = '\0';
     }
     return strlen(out);
+}
+
+
+/*
+ * This is the algorithm to create the stream:
+ * Convert the value to big endian.
+ * Count the number of bits between the LSB and the most significant 1 bit, inclusive.
+ * Divide this number by 7 and take the cieling of the remainder.
+ * This is the byte count M.
+ * Create a byte sequence with M bytes.
+ * Take the least significant 7 bits of the number and place them in the Mth byte.
+ * Set the highest bit of the Mth byte to zero.
+ * Take the bits 13 through 7 and add them to the byte M-1.
+ * Set the highest bit of byte M-1 to one.
+ * Continue until all the M bytes have been filled with with data.
+ *
+ * 127 01111111
+ * 128 10000001 00000000
+ * 130 10000001 00000010
+*/
+
+uint64_t varint_decode(uint8_t *data, uint32_t maxlen, uint8_t *bytes)
+{
+
+    uint64_t ret = 0;
+    if ( !data || !bytes ) return ret;
+
+    *bytes = 0;
+    do
+    {
+        ret = ret << 7;
+        ret += ((uint64_t)data[*bytes]) & 0x7F;
+    } while ( data[(*bytes)++] & 0x80 && *bytes < maxlen);
+
+    return ret;
 }

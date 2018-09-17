@@ -44,7 +44,7 @@ static const uint8_t SW_INTERNAL[] = {0x6F, 0x00};
 static const uint8_t NOTIFY_USER_PRESENCE_NEEDED[] = {
     KEEPALIVE_REASON_TUP_NEEDED};
 
-static const uint8_t PROXY_MAGIC[] = {'m', 'F', 'w'};
+static const uint8_t PROXY_MAGIC[] = {'T', 'F', 'A'};
 
 #define INIT_U2F_VERSION 0x02
 #define INIT_DEVICE_VERSION_MAJOR 0
@@ -116,6 +116,7 @@ void u2f_handle_sign(u2f_service_t *service, uint8_t p1, uint8_t p2,
         u2f_send_fragmented_response(service, U2F_CMD_MSG,
                                      (uint8_t *)SW_BAD_KEY_HANDLE,
                                      sizeof(SW_BAD_KEY_HANDLE), true);
+        return;
     }
     // Check that it looks like an APDU
     os_memmove(G_io_apdu_buffer, buffer + 65, keyHandleLength);
@@ -205,7 +206,7 @@ void u2f_handle_cmd_msg(u2f_service_t *service, uint8_t *buffer,
     }
     switch (ins) {
     case FIDO_INS_ENROLL:
-        PRINTF("enroll\n");
+        // screen_printf("enroll\n");
         u2f_handle_enroll(service, p1, p2, buffer + 7, dataLength);
         break;
     case FIDO_INS_SIGN:
