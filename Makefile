@@ -30,7 +30,7 @@ APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 
 #prepare hsm generation
 ifeq ($(TARGET_NAME),TARGET_BLUE)
-ICONNAME=images/app_factom.gif
+ICONNAME=images/app_mfw.gif
 else
 ICONNAME=images/mfw_bw.gif
 endif
@@ -44,7 +44,7 @@ all: default
 ############
 # Platform #
 ############
-
+DEFINES   += LEGACY_SUPPORT
 DEFINES   += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=128
 DEFINES   += HAVE_BAGL HAVE_SPRINTF
 #DEFINES   += HAVE_PRINTF PRINTF=screen_printf
@@ -85,6 +85,7 @@ SDK_SOURCE_PATH  += lib_stusb
 
 
 load: all
+	echo $(APP_LOAD_PARAMS)
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
 
 delete:
