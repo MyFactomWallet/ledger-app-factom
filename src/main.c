@@ -1968,7 +1968,7 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     G_io_apdu_buffer[34] = (uint8_t)(signatureLength);
     signatureLength += 2; 
 
-    //Return RCD in 0..33
+    //Return RCD in 0..32
     getRCDFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
                                G_io_apdu_buffer, 33);
     signatureLength+=33;
@@ -2011,10 +2011,10 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
 
     //store signature in 34..96
     signatureLength = cx_eddsa_sign(&privateKey, CX_LAST, CX_SHA512,
-                            tmpCtx.transactionContext.rawTx,
-                            tmpCtx.transactionContext.rawTxLength - EC_PUBLIC_KEY_LENGTH,
-                            NULL, 0,
-                            &G_io_apdu_buffer[34], sizeof(G_io_apdu_buffer)-34, NULL);
+                        tmpCtx.transactionContext.rawTx,
+                        tmpCtx.transactionContext.rawTxLength,
+                        NULL, 0,
+                        &G_io_apdu_buffer[34], sizeof(G_io_apdu_buffer)-34, NULL);
 
 
     cx_ecfp_generate_pair(CX_CURVE_Ed25519,
@@ -2028,7 +2028,7 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     G_io_apdu_buffer[33] = (uint8_t)(signatureLength);
     signatureLength += 2;
 
-    //Return RCD in 0..33
+    //Return Public Key in 0..31
     getECKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
                                G_io_apdu_buffer, 32);
     signatureLength+=32;
