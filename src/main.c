@@ -1951,18 +1951,11 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
 
     //store signature in 35..97
-#ifdef LEGACY_SUPPORT
-    signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
-                            tmpCtx.transactionContext.rawTx,
-                            tmpCtx.transactionContext.rawTxLength,
-                            &G_io_apdu_buffer[35]);
-#else
     signatureLength = cx_eddsa_sign(&privateKey, CX_LAST, CX_SHA512,
                             tmpCtx.transactionContext.rawTx,
                             tmpCtx.transactionContext.rawTxLength,
 			    NULL, 0,
-                            &G_io_apdu_buffer[35], NULL);
-#endif
+                            &G_io_apdu_buffer[35], sizeof(G_io_apdu_buffer)-35, NULL);
 
     cx_ecfp_generate_pair(CX_CURVE_Ed25519,
                          &tmpCtx.publicKeyContext.publicKey,
@@ -2017,10 +2010,12 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
 
     //store signature in 34..96
-    signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
+    signatureLength = cx_eddsa_sign(&privateKey, CX_LAST, CX_SHA512,
                             tmpCtx.transactionContext.rawTx,
                             tmpCtx.transactionContext.rawTxLength - EC_PUBLIC_KEY_LENGTH,
-                            &G_io_apdu_buffer[34]);
+                            NULL, 0,
+                            &G_io_apdu_buffer[34], sizeof(G_io_apdu_buffer)-34, NULL);
+
 
     cx_ecfp_generate_pair(CX_CURVE_Ed25519,
                          &tmpCtx.publicKeyContext.publicKey,
@@ -2570,7 +2565,7 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         }
 
         //os_memmove(pubkey.W,txEcContent.ecpubkey,pubkey.W_len);
-	snprintf(addressSummary,sizeof(addressSummary),"Sign Entry?");
+	snprintf((char*)addressSummary,sizeof(addressSummary),"Sign Entry?");
 
     }
 

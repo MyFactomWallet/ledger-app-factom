@@ -38,7 +38,7 @@ void getFctAddressFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
     uint8_t hashAddress[32];
     cx_keccak_init(sha3Context, 256);
     cx_hash((cx_hash_t *)sha3Context, CX_LAST, publicKey->W + 1, 64,
-            hashAddress);
+            hashAddress, sizeof(hashAddress));
     os_memmove(out, hashAddress + 12, 20);
 }
 
@@ -66,11 +66,11 @@ char convertDigit(uint8_t *address, uint8_t index, uint8_t *hash) {
         }
      }
 }
-void sha256d(uint8_t *data, uint32_t len, uint8_t *out)
+void sha256d(uint8_t *data, uint32_t len, uint8_t *out, uint32_t outlen)
 {
     uint8_t in[32];
-    cx_hash_sha256(data,len,in);
-    cx_hash_sha256(in,32,out);
+    cx_hash_sha256(data,len,in,sizeof(in));
+    cx_hash_sha256(in,32,out,outlen);
 }
 
 void getECKeyFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
@@ -128,7 +128,7 @@ void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, uint8_t keyty
     os_memmove(address+2, rcdhash, 32);
 
     uint8_t checksum[32];
-    sha256d(address, 34, checksum);
+    sha256d(address, 34, checksum,sizeof(checksum));
     os_memmove(address+34, checksum, 4);
 
     btchip_encode_base58(address, 38, out, 52);
@@ -146,7 +146,7 @@ void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
     *(uint16_t*)address = g_factom_key_prefix[keytype];
     if ( keytype == PUBLIC_OFFSET_FCT )
     {
-        sha256d(publicKey->W, publicKey->W_len, &address[2]);
+        sha256d(publicKey->W, publicKey->W_len, &address[2],32);
     }
     else
     {
@@ -156,7 +156,7 @@ void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
 
     //2) Take the SHA256d of the above data. Append the first 4 bytes of 
     //   this SHA256d to the end of the above value bytewise
-    sha256d(address, 34, checksum);
+    sha256d(address, 34, checksum,sizeof(checksum));
 
     os_memmove(address+34, checksum, 4);
 

@@ -73,7 +73,7 @@ typedef enum parserStatus_e {
 
 extern const uint32_t MAX_TXN_SIZE;
 
-void sha256d(uint8_t *data, uint32_t len, uint8_t *out);
+void sha256d(uint8_t *data, uint32_t len, uint8_t *out, uint32_t outlen);
 
 void getRCDFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
                       uint8_t *out, uint8_t len);
