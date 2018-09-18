@@ -32,7 +32,7 @@
 
 #include "glyphs.h"
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
 
 #include "u2f_service.h"
 #include "u2f_transport.h"
@@ -148,7 +148,7 @@ volatile txContentAddress_t *addresses[MAX_OUTPUTS];
 
 bagl_element_t tmp_element;
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
 
 volatile u2f_service_t u2fService;
 
@@ -184,7 +184,7 @@ void array_hexstr(char *strbuf, const void *bin, unsigned int len) {
     *strbuf = 0; // EOS
 }
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
 
 void u2f_proxy_response(u2f_service_t *service, unsigned int tx) {
     os_memset(service->messageBuffer, 0, 5);
@@ -337,7 +337,7 @@ const ux_menu_entry_t menu_settings[];
 const ux_menu_entry_t menu_settings_browser[];
 const ux_menu_entry_t menu_settings_data[];
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
 
 // change the setting
 void menu_settings_data_change(unsigned int enabled) {
@@ -355,7 +355,7 @@ void menu_settings_data_init(unsigned int ignored) {
     UX_MENU_DISPLAY(N_storage.dataAllowed ? 1 : 0, menu_settings_data, NULL);
 }
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
 // change the setting
 void menu_settings_browser_change(unsigned int enabled) {
     fidoTransport = enabled;
@@ -378,7 +378,7 @@ const ux_menu_entry_t menu_settings_browser[] = {
     {NULL, menu_settings_browser_change, 0, NULL, "No", NULL, 0, 0},
     {NULL, menu_settings_browser_change, 1, NULL, "Yes", NULL, 0, 0},
     UX_MENU_END};
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
 
 const ux_menu_entry_t menu_settings_data[] = {
     {NULL, menu_settings_data_change, 0, NULL, "No", NULL, 0, 0},
@@ -387,12 +387,12 @@ const ux_menu_entry_t menu_settings_data[] = {
 
 const ux_menu_entry_t menu_settings[] = {
    // {NULL, menu_settings_data_init, 0, NULL, "Contract data", NULL, 0, 0},
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
     {NULL, menu_settings_browser_init, 0, NULL, "Browser support", NULL, 0, 0},
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
     {menu_main, NULL, 1, &C_icon_back, "Back", NULL, 61, 40},
     UX_MENU_END};
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
 
 const ux_menu_entry_t menu_about[] = {
     {NULL, NULL, 0, NULL, "MyFactomWallet", ".com", 0, 0},
@@ -534,7 +534,7 @@ const bagl_element_t ui_settings_blue[] = {
      ui_settings_out_over,
      ui_settings_out_over},
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
     {{BAGL_RECTANGLE, 0x00, 30, 146, 260, 1, 1, 0, 0, 0xEEEEEE, COLOR_BG_1, 0,
       0},
      NULL,
@@ -583,7 +583,7 @@ const bagl_element_t ui_settings_blue[] = {
      NULL,
      NULL,
      NULL},
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
     {{BAGL_ICON, 0x01, 258, 98, 32, 18, 0, 0, BAGL_FILL, 0x000000, COLOR_BG_1,
       0, 0},
      NULL,
@@ -1884,17 +1884,17 @@ unsigned int io_seproxyhal_touch_address_ok(const bagl_element_t *e) {
     uint32_t tx = set_result_get_publicKey();
     G_io_apdu_buffer[tx++] = 0x90;
     G_io_apdu_buffer[tx++] = 0x00;
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
     if (fidoActivated) {
         u2f_proxy_response((u2f_service_t *)&u2fService, tx);
     } else {
         // Send back the response, do not restart the event loop
         io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, tx);
     }
-#else  // HAVE_U2F
+#else  // HAVE_U2F_DEP
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, tx);
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
     // Display back the original UX
     ui_idle();
     return 0; // do not redraw the widget
@@ -1903,17 +1903,17 @@ unsigned int io_seproxyhal_touch_address_ok(const bagl_element_t *e) {
 unsigned int io_seproxyhal_touch_address_cancel(const bagl_element_t *e) {
     G_io_apdu_buffer[0] = 0x69;
     G_io_apdu_buffer[1] = 0x85;
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
     if (fidoActivated) {
         u2f_proxy_response((u2f_service_t *)&u2fService, 2);
     } else {
         // Send back the response, do not restart the event loop
         io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
     }
-#else  // HAVE_U2F
+#else  // HAVE_U2F_DEP
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
     // Display back the original UX
     ui_idle();
     return 0; // do not redraw the widget
@@ -1977,17 +1977,17 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
     if (fidoActivated) {
         u2f_proxy_response((u2f_service_t *)&u2fService, signatureLength);
     } else {
         // Send back the response, do not restart the event loop
         io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
     }
-#else  // HAVE_U2F
+#else  // HAVE_U2F_DEP
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
 
     // Display back the original UX
     ui_idle();
@@ -2037,17 +2037,17 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
     if (fidoActivated) {
         u2f_proxy_response((u2f_service_t *)&u2fService, signatureLength);
     } else {
         // Send back the response, do not restart the event loop
         io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
     }
-#else  // HAVE_U2F
+#else  // HAVE_U2F_DEP
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
 
     // Display back the original UX
     ui_idle();
@@ -2059,17 +2059,17 @@ unsigned int io_seproxyhal_touch_tx_cancel(const bagl_element_t *e)
 {
     G_io_apdu_buffer[0] = 0x69;
     G_io_apdu_buffer[1] = 0x85;
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
     if (fidoActivated) {
         u2f_proxy_response((u2f_service_t *)&u2fService, 2);
     } else {
         // Send back the response, do not restart the event loop
         io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
     }
-#else  // HAVE_U2F
+#else  // HAVE_U2F_DEP
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-#endif // HAVE_U2F
+#endif // HAVE_U2F_DEP
     // Display back the original UX
     ui_idle();
     return 0; // do not redraw the widget
@@ -2827,7 +2827,7 @@ __attribute__((section(".boot"))) int main(void) {
                               sizeof(internalStorage_t));
                 }
 
-#ifdef HAVE_U2F
+#ifdef HAVE_U2F_DEP
                 os_memset((unsigned char *)&u2fService, 0, sizeof(u2fService));
                 u2fService.inputBuffer = G_io_apdu_buffer;
                 u2fService.outputBuffer = G_io_apdu_buffer;
@@ -2836,9 +2836,9 @@ __attribute__((section(".boot"))) int main(void) {
                 u2f_initialize_service((u2f_service_t *)&u2fService);
 
                 USB_power_U2F(1, N_storage.fidoTransport);
-#else  // HAVE_U2F
-                USB_power_U2F(1, 0);
-#endif // HAVE_U2F
+#else  // HAVE_U2F_DEP
+                USB_power(1);
+#endif // HAVE_U2F_DEP
 
                 ui_idle();
 

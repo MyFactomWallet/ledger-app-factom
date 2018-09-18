@@ -44,7 +44,6 @@ all: default
 ############
 # Platform #
 ############
-#DEFINES   += LEGACY_SUPPORT
 DEFINES   += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=128
 DEFINES   += HAVE_BAGL HAVE_SPRINTF
 #DEFINES   += HAVE_PRINTF PRINTF=screen_printf
@@ -53,12 +52,13 @@ DEFINES   += HAVE_IO_USB HAVE_L4_USBLIB IO_USB_MAX_ENDPOINTS=6 IO_HID_EP_LENGTH=
 DEFINES   +=  LEDGER_MAJOR_VERSION=$(APPVERSION_M) LEDGER_MINOR_VERSION=$(APPVERSION_N) LEDGER_PATCH_VERSION=$(APPVERSION_P)
 
 # U2F
-DEFINES   += HAVE_U2F
+#DEFINES   += HAVE_U2F
 DEFINES   += USB_SEGMENT_SIZE=64
 DEFINES   += BLE_SEGMENT_SIZE=32 #max MTU, min 20
-DEFINES   += U2F_MAX_MESSAGE_SIZE=264 #257+5+2
+#DEFINES   += U2F_MAX_MESSAGE_SIZE=264 #257+5+2
 DEFINES   += UNUSED\(x\)=\(void\)x
 DEFINES   += APPVERSION=\"$(APPVERSION)\"
+
 
 ##############
 #  Compiler  #
@@ -81,11 +81,13 @@ include $(BOLOS_SDK)/Makefile.glyphs
 
 ### computed variables
 APP_SOURCE_PATH  += src 
-SDK_SOURCE_PATH  += lib_stusb
+#SDK_SOURCE_PATH  += lib_stusb
+SDK_SOURCE_PATH  += lib_u2f lib_stusb_impl lib_stusb
+DEFINES += U2F_PROXY_MAGIC=\"TFA\"
+DEFINES += HAVE_IO_U2F HAVE_U2F
 
 
 load: all
-	echo $(APP_LOAD_PARAMS)
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
 
 delete:
