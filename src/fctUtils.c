@@ -273,7 +273,7 @@ unsigned short fct_print_amount(uint64_t amount, int8_t *out,
     }
     tmp[i] = '\0';
 
-    strcpy(tmp2, "FCT "); //"ғ"
+    os_memmove(tmp2, "FCT ", 4); //"ғ"
     adjustDecimals(tmp, i, tmp2 + 4, 25, 8);
     if (strlen(tmp2) < outlen - 1)
     {
