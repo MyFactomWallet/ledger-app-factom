@@ -3,3 +3,5 @@ dep/
 obj/ 
 bin/
 ledger-factomjs/node_modules
+src/glyphs.c
+src/glyphs.h

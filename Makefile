@@ -60,8 +60,6 @@ DEFINES   += USB_SEGMENT_SIZE=64
 DEFINES   += BLE_SEGMENT_SIZE=32 #max MTU, min 20
 DEFINES   += U2F_PROXY_MAGIC=\"TFA\"
 
-#DEFINES   += CX_COMPLIANCE_141
-
 ##############
 #  Compiler  #
 ##############
