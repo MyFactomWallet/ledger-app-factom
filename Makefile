@@ -44,7 +44,6 @@ all: default
 ############
 # Platform #
 ############
-#DEFINES   += LEGACY_SUPPORT
 DEFINES   += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=128
 DEFINES   += HAVE_BAGL HAVE_SPRINTF
 #DEFINES   += HAVE_PRINTF PRINTF=screen_printf

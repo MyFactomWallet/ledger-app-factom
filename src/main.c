@@ -2013,7 +2013,7 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     //store signature in 34..96
     signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
                             tmpCtx.transactionContext.rawTx,
-                            tmpCtx.transactionContext.rawTxLength - EC_PUBLIC_KEY_LENGTH,
+                            tmpCtx.transactionContext.rawTxLength,
                             &G_io_apdu_buffer[34]);
 
 
