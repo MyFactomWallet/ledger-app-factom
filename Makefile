@@ -20,11 +20,11 @@ $(error Environment variable BOLOS_SDK is not set)
 endif
 include $(BOLOS_SDK)/Makefile.defines
 
-APPNAME = MyFactomWallet
-APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --curve secp256k1 --curve ed25519 $(COMMON_LOAD_PARAMS) 
+APPNAME = Factom
+APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --path "44'/143165576'" --curve ed25519 $(COMMON_LOAD_PARAMS) 
 
 APPVERSION_M=1
-APPVERSION_N=0
+APPVERSION_N=1
 APPVERSION_P=0
 APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 
@@ -85,7 +85,6 @@ SDK_SOURCE_PATH  += lib_stusb
 
 
 load: all
-	echo $(APP_LOAD_PARAMS)
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
 
 delete:

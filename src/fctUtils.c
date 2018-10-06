@@ -38,7 +38,7 @@ void getFctAddressFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
     uint8_t hashAddress[32];
     cx_keccak_init(sha3Context, 256);
     cx_hash((cx_hash_t *)sha3Context, CX_LAST, publicKey->W + 1, 64,
-            hashAddress, sizeof(hashAddress));
+            hashAddress);
     os_memmove(out, hashAddress + 12, 20);
 }
 
@@ -69,11 +69,11 @@ char convertDigit(uint8_t *address, uint8_t index, uint8_t *hash) {
 void sha256d(uint8_t *data, uint32_t len, uint8_t *out, uint32_t outlen)
 {
     uint8_t in[32];
-    cx_hash_sha256(data,len,in,sizeof(in));
-    cx_hash_sha256(in,32,out,outlen);
+    cx_hash_sha256(data,len,in);
+    cx_hash_sha256(in,32,out);
 }
 
-void getECKeyFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
+void getKeyFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
                                 uint8_t *out, uint8_t len)
 {
     if ( len < 32 )
@@ -116,12 +116,14 @@ void getRCDFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
     }
 }
 
+
 //the key prefix code is byte swapped
 const uint16_t g_factom_key_prefix[] = { 0xb15f, 0x7864, 0x2a59, 0xb65d };
 
-void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, uint8_t keytype)
+void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, keyType_t keytype)
 {
     uint8_t address[38];
+
 
     *(uint16_t*)address = g_factom_key_prefix[keytype];
 
@@ -135,34 +137,47 @@ void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, uint8_t keyty
 }
 
 void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
-                                uint8_t keytype) {
-    uint8_t address[38];//FCT: prefix(2 bytes) + RCD_hash(32 bytes) + checksum(4 bytes)
+                                keyType_t keytype) {
+    uint8_t address[41];//FCT: prefix(2 bytes) + RCD_hash(32 bytes) + checksum(4 bytes)
                         // EC: prefix(2 bytes) + Pub Key (32 bytes) + checksum(4 bytes)
+                        // ID: prefix(5 bytes) + Pub Key (32 bytes) + checksum(4 bytes)
     uint8_t checksum[32];
 
+    uint8_t key_offset = (keytype == PUBLIC_OFFSET_ID) ? 5: 2;
+    
     //https://github.com/FactomProject/FactomDocs/blob/master/factomDataStructureDetails.md
     
     //1) Concatenate 0x5fb1 and the RCD Hash bytewise
-    *(uint16_t*)address = g_factom_key_prefix[keytype];
     if ( keytype == PUBLIC_OFFSET_FCT )
     {
+        *(uint16_t*)address = g_factom_key_prefix[keytype];
         sha256d(publicKey->W, publicKey->W_len, &address[2],32);
     }
     else
     {
-        os_memmove(&address[2], publicKey->W, publicKey->W_len);
+        if (keytype == PUBLIC_OFFSET_ID) 
+        {
+            const uint8_t factom_id_prefix[] = { 0x03, 0x45, 0xef, 0x9d, 0xe0 };
+            os_memmove(address, factom_id_prefix, key_offset);
+        }
+	else
+        {
+            *(uint16_t*)address = g_factom_key_prefix[keytype];
+        }
+
+        os_memmove(&address[key_offset], publicKey->W, publicKey->W_len);
     }
     
 
     //2) Take the SHA256d of the above data. Append the first 4 bytes of 
     //   this SHA256d to the end of the above value bytewise
-    sha256d(address, 34, checksum,sizeof(checksum));
+    sha256d(address, 32 + key_offset, checksum, sizeof(checksum));
 
-    os_memmove(address+34, checksum, 4);
+    os_memmove(address + 32 + key_offset, checksum, 4);
 
     //3) Convert the above value from base 256 to base 58. Use standard 
     //   Bitcoin base58 encoding to display the number
-    btchip_encode_base58(address, 38, out, 52);
+    btchip_encode_base58(address, 32 + 4 + key_offset, out, 50 + key_offset);
 }
 
 bool adjustDecimals(char *src, uint32_t srcLength, char *target,

@@ -68,6 +68,7 @@ uint32_t set_result_get_publicKey(void);
 #define INS_SIGN_PERSONAL_MESSAGE 0x08
 #define INS_GET_PUBLIC_EC_KEY 0x10
 #define INS_COMMIT_SIGN 0x12
+#define INS_SIGN_MESSAGE 0x14
 
 #define COIN_TYPE_EC 132
 #define COIN_TYPE_FCT 131
@@ -98,7 +99,7 @@ uint32_t set_result_get_publicKey(void);
 
 typedef struct publicKeyContext_t {
     cx_ecfp_public_key_t publicKey;
-    uint8_t address[53];//factom addresses are 52 bytes
+    uint8_t address[56];//factom addresses are 52 bytes, ID's are 55 bytes
     uint8_t chainCode[32];
     bool getChaincode;
 } publicKeyContext_t;
@@ -133,7 +134,8 @@ union {
     cx_sha256_t sha2;
 } tmpContent;
 
-#define FCT_ADDRESS_LENGTH 52
+//fct/ec address length is 52, id length is 55
+#define FCT_ADDRESS_LENGTH 55
 
 volatile uint8_t dataAllowed;
 volatile uint8_t fidoTransport;
@@ -1589,7 +1591,7 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                         os_memmove((void *)addressSummary, (void*)fullAddress, 10);
                         os_memmove((void *)(addressSummary + 10), "..", 2);
                         os_memmove((void *)(addressSummary + 12),
-                                   (void*)(fullAddress + FCT_ADDRESS_LENGTH - 4), 4);
+                                   (void*)(fullAddress + strlen(fullAddress) - 4), 4);
                         goto display_detail;
                     }
                 display_detail:
@@ -1951,11 +1953,10 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
 
     //store signature in 35..97
-    signatureLength = cx_eddsa_sign(&privateKey, CX_LAST, CX_SHA512,
+    signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
                             tmpCtx.transactionContext.rawTx,
                             tmpCtx.transactionContext.rawTxLength,
-			    NULL, 0,
-                            &G_io_apdu_buffer[35], sizeof(G_io_apdu_buffer)-35, NULL);
+                            &G_io_apdu_buffer[35]);//, sizeof(G_io_apdu_buffer)-35);
 
     cx_ecfp_generate_pair(CX_CURVE_Ed25519,
                          &tmpCtx.publicKeyContext.publicKey,
@@ -2010,11 +2011,10 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
 
     //store signature in 34..96
-    signatureLength = cx_eddsa_sign(&privateKey, CX_LAST, CX_SHA512,
+    signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
                             tmpCtx.transactionContext.rawTx,
                             tmpCtx.transactionContext.rawTxLength - EC_PUBLIC_KEY_LENGTH,
-                            NULL, 0,
-                            &G_io_apdu_buffer[34], sizeof(G_io_apdu_buffer)-34, NULL);
+                            &G_io_apdu_buffer[34]);
 
 
     cx_ecfp_generate_pair(CX_CURVE_Ed25519,
@@ -2029,7 +2029,7 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     signatureLength += 2;
 
     //Return RCD in 0..33
-    getECKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+    getKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
                                G_io_apdu_buffer, 32);
     signatureLength+=32;
 
@@ -2163,9 +2163,9 @@ uint32_t set_result_get_publicKey() {
     G_io_apdu_buffer[tx++] = tmpCtx.publicKeyContext.publicKey.W_len;
     os_memmove(G_io_apdu_buffer + tx, tmpCtx.publicKeyContext.publicKey.W, tmpCtx.publicKeyContext.publicKey.W_len);
     tx += tmpCtx.publicKeyContext.publicKey.W_len;
-    G_io_apdu_buffer[tx++] = 52;
-    os_memmove(G_io_apdu_buffer + tx, tmpCtx.publicKeyContext.address, 52);
-    tx += 52;
+    G_io_apdu_buffer[tx++] = strlen(tmpCtx.publicKeyContext.address);
+    os_memmove(G_io_apdu_buffer + tx, tmpCtx.publicKeyContext.address, strlen(tmpCtx.publicKeyContext.address));
+    tx += strlen(tmpCtx.publicKeyContext.address);
     if (tmpCtx.publicKeyContext.getChaincode) {
         os_memmove(G_io_apdu_buffer + tx, tmpCtx.publicKeyContext.chainCode,
                    32);
@@ -2220,6 +2220,12 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     {
         keytype = PUBLIC_OFFSET_EC;
     }
+    else if ( (uint32_t)bip32Path[1] == 0x88888888 )
+    {
+        keytype = PUBLIC_OFFSET_ID;
+    } 
+
+    os_memset(&tmpCtx, 0, sizeof(tmpCtx));
 
     tmpCtx.publicKeyContext.getChaincode = (p2 == P2_CHAINCODE);
     os_perso_derive_node_bip32(CX_CURVE_Ed25519, 
@@ -2235,8 +2241,10 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     cx_ecfp_generate_pair(CX_CURVE_Ed25519, &tmpCtx.publicKeyContext.publicKey,
                           &privateKey, 1);
 
+
     os_memset(&privateKey, 0, sizeof(privateKey));
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
+
 
     if ( keytype == PUBLIC_OFFSET_FCT )
     {
@@ -2251,10 +2259,10 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         tmpCtx.publicKeyContext.publicKey.W_len = sizeof(rcd);
         os_memmove(tmpCtx.publicKeyContext.publicKey.W, rcd,sizeof(rcd));
     }
-    else
+    else if ( keytype == PUBLIC_OFFSET_EC || keytype == PUBLIC_OFFSET_ID )
     {
         uint8_t key[32];
-        getECKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+        getKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
                                    key, sizeof(key));
         //make the compressed key the new key.
         os_memset(tmpCtx.publicKeyContext.publicKey.W, 0, 65);
@@ -2262,16 +2270,20 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         os_memmove(tmpCtx.publicKeyContext.publicKey.W, key,sizeof(key));
 
     }
+    else 
+    {
+        //THROW(ERROR)
+    }
+
 
     //convert the public key to an address
     //publicKey is RCD or EC Key
+
     getFctAddressStringFromKey(&tmpCtx.publicKeyContext.publicKey,
                                 tmpCtx.publicKeyContext.address, 
 				keytype);
 
 
-    //tmpCtx.publicKeyContext.publicKey.W[0] = bip32Path[1];
-    //tmpCtx.publicKeyContext.publicKey.W_len = 1;
     if (p1 == P1_NON_CONFIRM) {
         *tx = set_result_get_publicKey();
         THROW(0x9000);
@@ -2281,11 +2293,13 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         // prepare for a UI based reply
         skipWarning = false;
 #if defined(TARGET_BLUE)
-        snprintf(fullAddress, sizeof(fullAddress), "%.*s", 52,
+        snprintf((char*)fullAddress, sizeof(fullAddress), "%.*s", 
+                 (keytype == PUBLIC_OFFSET_ID) ? 55 : 52,
                  tmpCtx.publicKeyContext.address);
         UX_DISPLAY(ui_address_blue, ui_address_blue_prepro);
 #elif defined(TARGET_NANOS)
-        snprintf((char*)fullAddress, sizeof(fullAddress), " %.*s ", 52,
+        snprintf((char*)fullAddress, sizeof(fullAddress), " %.*s ", 
+                 (keytype == PUBLIC_OFFSET_ID) ? 55 : 52,
                  tmpCtx.publicKeyContext.address);
         ux_step = 0;
         ux_step_count = 2;
@@ -2465,6 +2479,106 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 }
 
 
+void handleSignMessage(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
+                  uint16_t dataLength,
+                  volatile unsigned int *flags,
+                  volatile unsigned int *tx)
+{
+    UNUSED(tx);
+
+    switch (p1)
+    {
+    case P1_FIRST:
+        os_memset(&tmpCtx.transactionContext,0,sizeof(tmpCtx.transactionContext));
+
+        tmpCtx.transactionContext.pathLength = workBuffer[0];
+        if ((tmpCtx.transactionContext.pathLength < 0x01) ||
+            (tmpCtx.transactionContext.pathLength > MAX_BIP32_PATH))
+        {
+            THROW(0x6a80);
+        }
+        workBuffer++;
+        dataLength--;
+
+        //now extract the pathing information
+        for (int i = 0; i < tmpCtx.transactionContext.pathLength; i++)
+        {
+            tmpCtx.transactionContext.bip32Path[i] =
+                (workBuffer[0] << 24) |
+                (workBuffer[1] << 16) |
+                (workBuffer[2] << 8)  |
+                (workBuffer[3]);
+            workBuffer += 4;
+            dataLength -= 4;
+        }
+        tmpCtx.transactionContext.curve = CX_CURVE_Ed25519;
+        tmpCtx.transactionContext.rawTxLength = dataLength;
+
+        if ( dataLength > MAX_RAW_TX )
+        {
+            THROW(BTCHIP_SW_NOT_ENOUGH_MEMORY_SPACE);
+        }
+
+        os_memmove(tmpCtx.transactionContext.rawTx, workBuffer, dataLength);
+        if ( (uint8_t)tmpCtx.transactionContext.bip32Path[1] != 0xF1D )
+        {
+            THROW(BTCHIP_SW_INCORRECT_DATA);
+        }
+        
+        uint8_t privateKeyData[64];
+        uint16_t signatureLength = 0;
+        cx_ecfp_private_key_t privateKey;
+
+        os_perso_derive_node_bip32(
+            CX_CURVE_Ed25519, 
+            tmpCtx.transactionContext.bip32Path,
+            tmpCtx.transactionContext.pathLength, 
+            privateKeyData, NULL);
+        cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
+        os_memset(privateKeyData, 0, sizeof(privateKeyData));
+
+        //store signature in 35..97
+        /*
+         * 
+SYSCALL int cx_eddsa_sign(cx_ecfp_private_key_t WIDE *pvkey
+                          PLENGTH(scc__cx_ecfp_private_key_scc__pvkey),
+                          cx_ecfp_public_key_t WIDE *pukey
+                          PLENGTH(scc__cx_ecfp_public_key_scc__pukey),
+                          int mode, cx_md_t hashID,
+                          unsigned char WIDE *hash PLENGTH(hash_len),
+                          unsigned int hash_len,
+                          unsigned char *sig PLENGTH(32 * 2));
+*/
+        signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
+                                tmpCtx.transactionContext.rawTx,
+                                tmpCtx.transactionContext.rawTxLength,
+                                &G_io_apdu_buffer[35]);//, sizeof(G_io_apdu_buffer)-35);
+
+        break;
+    case P1_MORE:
+        if ( tmpCtx.transactionContext.rawTxLength  > sizeof(tmpCtx.transactionContext.rawTx) )
+        {
+            os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
+            //Transaction too large for device
+            THROW(0x6A80);
+        }
+//        os_memmove(&tmpCtx.transactionContext.rawTx[tmpCtx.transactionContext.rawTxLength],
+//                   workBuffer, dataLength);
+        tmpCtx.transactionContext.rawTxLength += dataLength;
+        break;
+    default:
+        THROW(0x6B00);
+    };
+
+    if ( (p2&0x02) == 0 ) 
+    {
+        THROW(0x9000);
+    }
+    
+    //if we get this far, sign the message
+    
+}
+
 void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
                   uint16_t dataLength,
                   volatile unsigned int *flags,
@@ -2627,6 +2741,12 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                 break;
             case INS_COMMIT_SIGN:
                 handleCommitSign(G_io_apdu_buffer[OFFSET_P1],
+                           G_io_apdu_buffer[OFFSET_P2],
+                           G_io_apdu_buffer + OFFSET_CDATA,
+                           G_io_apdu_buffer[OFFSET_LC], flags, tx);
+                break;
+            case INS_SIGN_MESSAGE:
+                handleSignMessage(G_io_apdu_buffer[OFFSET_P1],
                            G_io_apdu_buffer[OFFSET_P2],
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
