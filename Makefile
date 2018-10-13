@@ -20,11 +20,12 @@ $(error Environment variable BOLOS_SDK is not set)
 endif
 include $(BOLOS_SDK)/Makefile.defines
 
-APPNAME = MyFactomWallet
-APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --curve secp256k1 --curve ed25519 $(COMMON_LOAD_PARAMS) 
+APPNAME = Factom
+#APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --path "44'/143165576'" --curve ed25519 $(COMMON_LOAD_PARAMS) 
+APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --curve ed25519 $(COMMON_LOAD_PARAMS) 
 
 APPVERSION_M=1
-APPVERSION_N=0
+APPVERSION_N=1
 APPVERSION_P=0
 APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 DEFINES   += UNUSED\(x\)=\(void\)x
@@ -34,7 +35,7 @@ DEFINES   += APPVERSION=\"$(APPVERSION)\"
 ifeq ($(TARGET_NAME),TARGET_BLUE)
 ICONNAME=images/app_mfw.gif
 else
-ICONNAME=images/mfw_bw.gif
+ICONNAME=images/factom_nano.gif
 endif
 
 
