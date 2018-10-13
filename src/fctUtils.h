@@ -66,26 +66,30 @@ typedef enum parserStatus_e {
 
 //bool rlpCanDecode(uint8_t *buffer, uint32_t bufferLength, bool *valid);
 
-#define PUBLIC_OFFSET_FCT  0
-#define PRIVATE_OFFSET_FCT 1
-#define PUBLIC_OFFSET_EC   2
-#define PRIVATE_OFFSET_EC  3
+typedef enum {
+    PUBLIC_OFFSET_FCT,
+    PRIVATE_OFFSET_FCT,
+    PUBLIC_OFFSET_EC,
+    PRIVATE_OFFSEST_EC,
+    PUBLIC_OFFSET_ID,
+    PRIVATE_OFFSET_ID
+}  keyType_t;
 
 extern const uint32_t MAX_TXN_SIZE;
 
 void sha256d(uint8_t *data, uint32_t len, uint8_t *out, uint32_t outlen);
 
+
 void getRCDFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
                       uint8_t *out, uint8_t len);
 
-void getECKeyFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
+void getKeyFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
                       uint8_t *out, uint8_t len);
 
-
-void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, uint8_t keytype);
+void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, keyType_t keytype);
 
 void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
-                                uint8_t fct_address_type);
+                                keyType_t fct_address_type);
 
 bool adjustDecimals(char *src, uint32_t srcLength, char *target,
                     uint32_t targetLength, uint8_t decimals);

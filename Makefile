@@ -72,7 +72,6 @@ CC       := $(CLANGPATH)clang
 CFLAGS   += -O3 -Os
 
 AS     := $(GCCPATH)arm-none-eabi-gcc
-
 LD       := $(GCCPATH)arm-none-eabi-gcc
 LDFLAGS  += -O3 -Os
 LDLIBS   += -lm -lgcc -lc 
