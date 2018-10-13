@@ -37,6 +37,8 @@
 #include "u2f_service.h"
 #include "u2f_transport.h"
 
+#define WANT_FACTOM_IDENTITY 0
+
 volatile unsigned char u2fMessageBuffer[U2F_MAX_MESSAGE_SIZE];
 
 extern void USB_power_U2F(unsigned char enabled, unsigned char fido);
@@ -2472,6 +2474,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 
 }
 
+#if WANT_FACTOM_IDENTITY
 
 void handleSignMessage(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
                   uint16_t dataLength,
@@ -2573,6 +2576,7 @@ SYSCALL int cx_eddsa_sign(cx_ecfp_private_key_t WIDE *pvkey
     //if we get this far, sign the message
     
 }
+#endif
 
 void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
                   uint16_t dataLength,
@@ -2740,12 +2744,14 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
+#if WANT_FACTOM_IDENTITY
             case INS_SIGN_MESSAGE:
                 handleSignMessage(G_io_apdu_buffer[OFFSET_P1],
                            G_io_apdu_buffer[OFFSET_P2],
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
+#endif
 
             case INS_GET_APP_CONFIGURATION:
                 handleGetAppConfiguration(
