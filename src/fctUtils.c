@@ -73,14 +73,19 @@ void sha256d(uint8_t *data, uint32_t len, uint8_t *out, uint32_t outlen)
     cx_hash_sha256(in,32,out,outlen);
 }
 
-void getKeyFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
-                                uint8_t *out, uint8_t len)
+void getCompressedPublicKey(
+	cx_ecfp_public_key_t *publicKey,
+        uint8_t *out, uint8_t len)
 {
     if ( len < 32 )
     {
         THROW(0x60ED);
     }
-    if (publicKey->curve == CX_CURVE_Ed25519 && publicKey->W[0] != 0xED)
+    if ( publicKey->curve == CX_CURVE_256K1 )
+    {
+        os_memmove(out + 1, publicKey->W + 1, 32);
+    }
+    else if (publicKey->curve == CX_CURVE_Ed25519 && publicKey->W[0] != 0xED)
     {
         for (uint8_t i = 0; i < 32; i++)
         {
@@ -93,17 +98,23 @@ void getKeyFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
     }
 }
 
-void getRCDFromEd25519PublicKey(cx_ecfp_public_key_t *publicKey,
+void getCompressedPublicKeyWithRCD(cx_ecfp_public_key_t *publicKey,
                               uint8_t *out, uint8_t len)
 {
     if ( len < 33 )
     {
         THROW(0x60ED);
     }
-    if (publicKey->curve == CX_CURVE_Ed25519 && publicKey->W[0] != 0xED) 
+
+    out[0] = 0x01;//RCD key type 1
+
+    if ( publicKey->curve == CX_CURVE_256K1 )
+    {
+        os_memmove(out + 1, publicKey->W + 1, 32);
+    }
+    else if (publicKey->curve == CX_CURVE_Ed25519 && publicKey->W[0] != 0xED) 
     {
         int offset = 1;
-        out[0] = 0x01;//RCD key type 1
 
         for (uint8_t i = 0; i < 32; i++) 
         {
