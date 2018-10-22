@@ -1943,14 +1943,17 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     uint8_t privateKeyData[64];
     uint16_t signatureLength = 0;
     cx_ecfp_private_key_t privateKey;
+    cx_ecfp_public_key_t publicKey;
 
     os_perso_derive_node_bip32(
-        CX_CURVE_Ed25519, 
+        CX_CURVE_256K1, 
         tmpCtx.transactionContext.bip32Path,
         tmpCtx.transactionContext.pathLength, 
         privateKeyData, NULL);
+
     cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
+
 
     //store signature in 35..97
     signatureLength = cx_eddsa_sign(&privateKey, NULL, CX_LAST, CX_SHA512,
@@ -1970,7 +1973,7 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     signatureLength += 2; 
 
     //Return RCD in 0..33
-    getRCDFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+    getCompressedPublicKeyWithRCD(&tmpCtx.publicKeyContext.publicKey,
                                G_io_apdu_buffer, 33);
     signatureLength+=33;
 
@@ -2003,7 +2006,7 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     cx_ecfp_private_key_t privateKey;
 
     os_perso_derive_node_bip32(
-        CX_CURVE_Ed25519,
+        CX_CURVE_256K1,
         tmpCtx.transactionContext.bip32Path,
         tmpCtx.transactionContext.pathLength,
         privateKeyData, NULL);
@@ -2029,7 +2032,7 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     signatureLength += 2;
 
     //Return RCD in 0..33
-    getKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+    getCompressedPublicKey(&tmpCtx.publicKeyContext.publicKey,
                                G_io_apdu_buffer, 32);
     signatureLength+=32;
 
@@ -2228,7 +2231,7 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     os_memset(&tmpCtx, 0, sizeof(tmpCtx));
 
     tmpCtx.publicKeyContext.getChaincode = (p2 == P2_CHAINCODE);
-    os_perso_derive_node_bip32(CX_CURVE_Ed25519, 
+    os_perso_derive_node_bip32(CX_CURVE_256K1, 
 		               bip32Path, bip32PathLength,
                                privateKeyData,
                                (tmpCtx.publicKeyContext.getChaincode
@@ -2251,7 +2254,7 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         //The public key generated is 64 bytes not 32, so compress it
         //and convert to an rcd
         uint8_t rcd[33];
-        getRCDFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+        getCompressedPublicKeyWithRCD(&tmpCtx.publicKeyContext.publicKey,
                                    rcd, sizeof(rcd));
 
         //make the compressed key the new key.
@@ -2262,7 +2265,7 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     else if ( keytype == PUBLIC_OFFSET_EC || keytype == PUBLIC_OFFSET_ID )
     {
         uint8_t key[32];
-        getKeyFromEd25519PublicKey(&tmpCtx.publicKeyContext.publicKey,
+        getCompressedPublicKey(&tmpCtx.publicKeyContext.publicKey,
                                    key, sizeof(key));
         //make the compressed key the new key.
         os_memset(tmpCtx.publicKeyContext.publicKey.W, 0, 65);
@@ -2358,7 +2361,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             workBuffer += 4;
             dataLength -= 4;
         }
-        tmpCtx.transactionContext.curve = CX_CURVE_Ed25519;
+        tmpCtx.transactionContext.curve = CX_CURVE_256K1;
         tmpCtx.transactionContext.rawTxLength = dataLength;
 
         if ( (uint8_t)tmpCtx.transactionContext.bip32Path[1] == 0x84 )
@@ -2511,7 +2514,7 @@ void handleSignMessage(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             workBuffer += 4;
             dataLength -= 4;
         }
-        tmpCtx.transactionContext.curve = CX_CURVE_Ed25519;
+        tmpCtx.transactionContext.curve = CX_CURVE_256K1;
         tmpCtx.transactionContext.rawTxLength = dataLength;
 
         if ( dataLength > MAX_RAW_TX )
@@ -2530,7 +2533,7 @@ void handleSignMessage(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         cx_ecfp_private_key_t privateKey;
 
         os_perso_derive_node_bip32(
-            CX_CURVE_Ed25519, 
+	    CX_CURVE_256K1,
             tmpCtx.transactionContext.bip32Path,
             tmpCtx.transactionContext.pathLength, 
             privateKeyData, NULL);
@@ -2612,7 +2615,7 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             workBuffer += 4;
             dataLength -= 4;
         }
-        tmpCtx.transactionContext.curve = CX_CURVE_Ed25519;
+        tmpCtx.transactionContext.curve = CX_CURVE_256K1;
         tmpCtx.transactionContext.rawTxLength = dataLength;
 
         if ( dataLength > MAX_RAW_TX )
