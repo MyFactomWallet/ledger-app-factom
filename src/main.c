@@ -1586,8 +1586,10 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     display_address_offset:
                     if ( addresses[offset] )
                     {
+			os_memset((void*)fullAddress, 0, sizeof(fullAddress));
                         getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->rcdhash,(uint8_t*)fullAddress, addresses_type[offset]);
 
+			os_memset((void*)addressSummary, 0, sizeof(addressSummary));
                         os_memmove((void *)addressSummary, (void*)fullAddress, 10);
                         os_memmove((void *)(addressSummary + 10), "..", 2);
                         os_memmove((void *)(addressSummary + 12),
@@ -2282,6 +2284,7 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     //convert the public key to an address
     //publicKey is RCD or EC Key
 
+    os_memset((void*)tmpCtx.publicKeyContext.address, 0, sizeof(tmpCtx.publicKeyContext.address));
     getFctAddressStringFromKey(&tmpCtx.publicKeyContext.publicKey,
                                 tmpCtx.publicKeyContext.address, 
 				keytype);
@@ -2690,6 +2693,7 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 
 #if WANT_REDUNDANT_DISPALY_OF_EC_ADDRESS
     char addr[64];
+    os_memset((void *) addr, 0, sizeof(addr));
     getFctAddressStringFromKey(&pubkey,addr,PUBLIC_OFFSET_EC);
 
     os_memset((void *) addressSummary, 0, sizeof(addressSummary));
