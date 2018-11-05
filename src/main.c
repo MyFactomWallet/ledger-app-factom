@@ -37,7 +37,10 @@
 #include "u2f_service.h"
 #include "u2f_transport.h"
 
-#define WANT_FACTOM_IDENTITY 0
+#define WANT_ENTRY_COMMIT_SIGN 1
+
+
+#define WANT_FACTOM_IDENTITY 0  //factom identity is experimental: Disabled by default
 
 volatile unsigned char u2fMessageBuffer[U2F_MAX_MESSAGE_SIZE];
 
@@ -108,6 +111,7 @@ typedef struct publicKeyContext_t {
 
 typedef struct transactionContext_t {
     cx_curve_t curve;
+    uint8_t headervalid;
     uint8_t pathLength;
     uint32_t bip32Path[MAX_BIP32_PATH];
     uint8_t rawTx[MAX_RAW_TX];
@@ -2376,15 +2380,26 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         {
             THROW(BTCHIP_SW_INCORRECT_DATA);
         }
+
+        tmpCtx.transactionContext.headervalid = 1;
     break;
 
-    case P1_MORE: 
-        if ( tmpCtx.transactionContext.rawTxLength  > sizeof(tmpCtx.transactionContext.rawTx) )
+    case P1_MORE: //LEDGER-REVIEW: this case should check if a call with P1_FIRST has been executed previously, and throw if not
+
+        //DB: Corrected check
+        if ( !tmpCtx.transactionContext.headervalid )
+        {
+            THROW(BTCHIP_SW_INCORRECT_P1_P2);
+        }
+        
+        //DB: Corrected buffer length check
+        if ( tmpCtx.transactionContext.rawTxLength + dataLength  > MAX_RAW_TX )
         {
            os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
            //Transaction too large for device
            THROW(0x6A80);
-        }
+        } //LEDGER-REVIEW: wrong check, should instead check if rawTxLength+dataLength > MAX_RAW_TX
+
         os_memmove(&tmpCtx.transactionContext.rawTx[tmpCtx.transactionContext.rawTxLength],
                    workBuffer, dataLength);
         tmpCtx.transactionContext.rawTxLength += dataLength;
@@ -2398,6 +2413,8 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     if ( p2 == 0 ) {
         THROW(0x9000);
     }
+
+    tmpCtx.transactionContext.headervalid = 0;
 
 #if WANT_INVALID_BUFFER_CHECK
     if ( tmpCtx.transactionContext.expectedTxLength < tmpCtx.transactionContext.rawTxLength )
@@ -2628,9 +2645,19 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         {
             THROW(BTCHIP_SW_INCORRECT_DATA);
         }
+
+        tmpCtx.transactionContext.headervalid = 1;
         break;
-    case P1_MORE:
-        if ( tmpCtx.transactionContext.rawTxLength  > sizeof(tmpCtx.transactionContext.rawTx) )
+    case P1_MORE: //LEDGER-REVIEW: this case should check if a call with P1_FIRST has been executed previously, and throw if not
+
+        //DB: Corrected check for P1_FIRST being called
+        if ( !tmpCtx.transactionContext.headervalid )
+        {
+             THROW(BTCHIP_SW_INCORRECT_P1_P2);
+        }
+
+        //DB: Corrected buffer length check
+        if ( tmpCtx.transactionContext.rawTxLength + dataLength  > MAX_RAW_TX )
         {
             os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
             //Transaction too large for device
@@ -2650,6 +2677,9 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
 
+
+    //now that we have all the data, clear out header valid check
+    tmpCtx.transactionContext.headervalid = 0;
 
     cx_ecfp_public_key_t pubkey;
     pubkey.W_len = 32;
@@ -2743,12 +2773,14 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
+#if WANT_ENTRY_COMMIT_SIGN
             case INS_COMMIT_SIGN:
                 handleCommitSign(G_io_apdu_buffer[OFFSET_P1],
                            G_io_apdu_buffer[OFFSET_P2],
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
+#endif
 #if WANT_FACTOM_IDENTITY
             case INS_SIGN_MESSAGE:
                 handleSignMessage(G_io_apdu_buffer[OFFSET_P1],
@@ -2939,6 +2971,7 @@ __attribute__((section(".boot"))) int main(void) {
 
     for (;;) {
         os_memset(&txContent, 0, sizeof(txContent));
+        os_memset(&tmpCtx.transactionContext,0,sizeof(tmpCtx.transactionContext));
 
         UX_INIT();
         BEGIN_TRY {

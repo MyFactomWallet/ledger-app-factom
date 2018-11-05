@@ -67,12 +67,13 @@ typedef enum parserStatus_e {
 //bool rlpCanDecode(uint8_t *buffer, uint32_t bufferLength, bool *valid);
 
 typedef enum {
-    PUBLIC_OFFSET_FCT,
-    PRIVATE_OFFSET_FCT,
-    PUBLIC_OFFSET_EC,
-    PRIVATE_OFFSEST_EC,
-    PUBLIC_OFFSET_ID,
-    PRIVATE_OFFSET_ID
+    PUBLIC_OFFSET_FCT = 0,
+    PRIVATE_OFFSET_FCT = 1,
+    PUBLIC_OFFSET_EC = 2,
+    PRIVATE_OFFSEST_EC = 3,
+    PUBLIC_OFFSET_ID = 4,
+    PRIVATE_OFFSET_ID = 5,
+    LAST_KEY_TYPE
 }  keyType_t;
 
 extern const uint32_t MAX_TXN_SIZE;

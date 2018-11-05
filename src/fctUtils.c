@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include "fctUtils.h"
 #include "btchip_base58.h"
+#include "btchip_apdu_constants.h"
 
 
 const uint32_t MAX_TXN_SIZE = 10275;
@@ -96,6 +97,11 @@ void getCompressedPublicKey(
             out[31] |= 0x80;
         }
     }
+    else
+    {
+        //LEDGER-REVIEW: defensive else throw
+        THROW(BTCHIP_SW_INCORRECT_DATA);
+    }
 }
 
 void getCompressedPublicKeyWithRCD(cx_ecfp_public_key_t *publicKey,
@@ -125,16 +131,26 @@ void getCompressedPublicKeyWithRCD(cx_ecfp_public_key_t *publicKey,
             out[31 + offset] |= 0x80;
         }
     }
+    else
+    {
+        //LEDGER-REVIEW: defensive else throw
+        THROW(BTCHIP_SW_INCORRECT_DATA);
+    }
 }
 
 
 //the key prefix code is byte swapped
 const uint16_t g_factom_key_prefix[] = { 0xb15f, 0x7864, 0x2a59, 0xb65d };
 
+
 void getFctAddressStringFromRCDHash(uint8_t *rcdhash,uint8_t *out, keyType_t keytype)
 {
     uint8_t address[38];
 
+    if ( keytype < 0 || keytype > 3 ) 
+    {
+        THROW(BTCHIP_SW_INVALID_OFFSET);
+    }
 
     *(uint16_t*)address = g_factom_key_prefix[keytype];
 
@@ -171,8 +187,13 @@ void getFctAddressStringFromKey(cx_ecfp_public_key_t *publicKey, uint8_t *out,
             const uint8_t factom_id_prefix[] = { 0x03, 0x45, 0xef, 0x9d, 0xe0 };
             os_memmove(address, factom_id_prefix, key_offset);
         }
-	else
+        else //LEDGER-REVIEW: check that keytype is not going out of bound when used as an index in g_factom_key_prefix
         {
+            //ensure keytype doesn't go out of bounds for g_factom_key_prefix
+            if ( keytype < 0 || keytype > 3 )
+            {
+                THROW(BTCHIP_SW_INVALID_OFFSET);
+            }
             *(uint16_t*)address = g_factom_key_prefix[keytype];
         }
 
