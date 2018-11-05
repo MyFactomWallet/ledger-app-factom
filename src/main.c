@@ -32,22 +32,11 @@
 
 #include "glyphs.h"
 
-#ifdef HAVE_U2F_DEP
-
-#include "u2f_service.h"
-#include "u2f_transport.h"
-
 #define WANT_ENTRY_COMMIT_SIGN 1
 
 
 #define WANT_FACTOM_IDENTITY 0  //factom identity is experimental: Disabled by default
 
-volatile unsigned char u2fMessageBuffer[U2F_MAX_MESSAGE_SIZE];
-
-extern void USB_power_U2F(unsigned char enabled, unsigned char fido);
-extern bool fidoActivated;
-
-#endif
 
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
@@ -109,6 +98,9 @@ typedef struct publicKeyContext_t {
     bool getChaincode;
 } publicKeyContext_t;
 
+#define HEADER_TYPE_TXSIGN 1
+#define HEADER_TYPE_COMMITSIGN 2
+
 typedef struct transactionContext_t {
     cx_curve_t curve;
     uint8_t headervalid;
@@ -156,12 +148,6 @@ volatile txContentAddress_t *addresses[MAX_OUTPUTS];
 
 bagl_element_t tmp_element;
 
-#ifdef HAVE_U2F_DEP
-
-volatile u2f_service_t u2fService;
-
-#endif
-
 ux_state_t ux;
 // display stepped screens
 unsigned int ux_step;
@@ -191,19 +177,6 @@ void array_hexstr(char *strbuf, const void *bin, unsigned int len) {
     }
     *strbuf = 0; // EOS
 }
-
-#ifdef HAVE_U2F_DEP
-
-void u2f_proxy_response(u2f_service_t *service, unsigned int tx) {
-    os_memset(service->messageBuffer, 0, 5);
-    os_memmove(service->messageBuffer + 5, G_io_apdu_buffer, tx);
-    service->messageBuffer[tx + 5] = 0x90;
-    service->messageBuffer[tx + 6] = 0x00;
-    u2f_send_fragmented_response(service, U2F_CMD_MSG, service->messageBuffer,
-                                 tx + 7, true);
-}
-
-#endif
 
 const bagl_element_t *ui_menu_item_out_over(const bagl_element_t *e) {
     // the selection rectangle is after the none|touchable
@@ -344,63 +317,6 @@ const ux_menu_entry_t menu_main[];
 const ux_menu_entry_t menu_settings[];
 const ux_menu_entry_t menu_settings_browser[];
 const ux_menu_entry_t menu_settings_data[];
-
-#ifdef HAVE_U2F_DEP
-
-// change the setting
-void menu_settings_data_change(unsigned int enabled) {
-    dataAllowed = enabled;
-    nvm_write(&N_storage.dataAllowed, (void *)&dataAllowed, sizeof(uint8_t));
-    USB_power_U2F(0, 0);
-    USB_power_U2F(1, N_storage.fidoTransport);
-    // go back to the menu entry
-    UX_MENU_DISPLAY(0, menu_settings, NULL);
-}
-
-// show the currently activated entry
-void menu_settings_data_init(unsigned int ignored) {
-    UNUSED(ignored);
-    UX_MENU_DISPLAY(N_storage.dataAllowed ? 1 : 0, menu_settings_data, NULL);
-}
-
-#ifdef HAVE_U2F_DEP
-// change the setting
-void menu_settings_browser_change(unsigned int enabled) {
-    fidoTransport = enabled;
-    nvm_write(&N_storage.fidoTransport, (void *)&fidoTransport,
-              sizeof(uint8_t));
-    USB_power_U2F(0, 0);
-    USB_power_U2F(1, N_storage.fidoTransport);
-    // go back to the menu entry
-    UX_MENU_DISPLAY(1, menu_settings, NULL);
-}
-
-// show the currently activated entry
-void menu_settings_browser_init(unsigned int ignored) {
-    UNUSED(ignored);
-    UX_MENU_DISPLAY(N_storage.fidoTransport ? 1 : 0, menu_settings_browser,
-                    NULL);
-}
-
-const ux_menu_entry_t menu_settings_browser[] = {
-    {NULL, menu_settings_browser_change, 0, NULL, "No", NULL, 0, 0},
-    {NULL, menu_settings_browser_change, 1, NULL, "Yes", NULL, 0, 0},
-    UX_MENU_END};
-#endif // HAVE_U2F_DEP
-
-const ux_menu_entry_t menu_settings_data[] = {
-    {NULL, menu_settings_data_change, 0, NULL, "No", NULL, 0, 0},
-    {NULL, menu_settings_data_change, 1, NULL, "Yes", NULL, 0, 0},
-    UX_MENU_END};
-
-const ux_menu_entry_t menu_settings[] = {
-   // {NULL, menu_settings_data_init, 0, NULL, "Contract data", NULL, 0, 0},
-#ifdef HAVE_U2F_DEP
-    {NULL, menu_settings_browser_init, 0, NULL, "Browser support", NULL, 0, 0},
-#endif // HAVE_U2F_DEP
-    {menu_main, NULL, 1, &C_icon_back, "Back", NULL, 61, 40},
-    UX_MENU_END};
-#endif // HAVE_U2F_DEP
 
 const ux_menu_entry_t menu_about[] = {
     {NULL, NULL, 0, NULL, "MyFactomWallet", ".com", 0, 0},
@@ -543,56 +459,6 @@ const bagl_element_t ui_settings_blue[] = {
      ui_settings_out_over,
      ui_settings_out_over},
 
-#ifdef HAVE_U2F_DEP
-    {{BAGL_RECTANGLE, 0x00, 30, 146, 260, 1, 1, 0, 0, 0xEEEEEE, COLOR_BG_1, 0,
-      0},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    {{BAGL_LABELINE, 0x00, 30, 174, 160, 30, 0, 0, BAGL_FILL, 0x000000,
-      COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     "Browser support",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x00, 30, 195, 260, 30, 0, 0, BAGL_FILL, 0x999999,
-      COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_8_11PX, 0},
-     "Enable integrated browser support",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_NONE | BAGL_FLAG_TOUCHABLE, 0x00, 0, 147, 320, 68, 0, 0, BAGL_FILL,
-      0xFFFFFF, 0x000000, 0, 0},
-     NULL,
-     0,
-     0xEEEEEE,
-     0x000000,
-     ui_settings_blue_toggle_browser,
-     ui_settings_out_over,
-     ui_settings_out_over},
-
-    // at the end to minimize the number of refreshed items upon setting change
-    {{BAGL_ICON, 0x02, 258, 167, 32, 18, 0, 0, BAGL_FILL, 0x000000, COLOR_BG_1,
-      0, 0},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-#endif // HAVE_U2F_DEP
     {{BAGL_ICON, 0x01, 258, 98, 32, 18, 0, 0, BAGL_FILL, 0x000000, COLOR_BG_1,
       0, 0},
      NULL,
@@ -1895,17 +1761,10 @@ unsigned int io_seproxyhal_touch_address_ok(const bagl_element_t *e) {
     uint32_t tx = set_result_get_publicKey();
     G_io_apdu_buffer[tx++] = 0x90;
     G_io_apdu_buffer[tx++] = 0x00;
-#ifdef HAVE_U2F_DEP
-    if (fidoActivated) {
-        u2f_proxy_response((u2f_service_t *)&u2fService, tx);
-    } else {
-        // Send back the response, do not restart the event loop
-        io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, tx);
-    }
-#else  // HAVE_U2F_DEP
+
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, tx);
-#endif // HAVE_U2F_DEP
+
     // Display back the original UX
     ui_idle();
     return 0; // do not redraw the widget
@@ -1914,17 +1773,10 @@ unsigned int io_seproxyhal_touch_address_ok(const bagl_element_t *e) {
 unsigned int io_seproxyhal_touch_address_cancel(const bagl_element_t *e) {
     G_io_apdu_buffer[0] = 0x69;
     G_io_apdu_buffer[1] = 0x85;
-#ifdef HAVE_U2F_DEP
-    if (fidoActivated) {
-        u2f_proxy_response((u2f_service_t *)&u2fService, 2);
-    } else {
-        // Send back the response, do not restart the event loop
-        io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-    }
-#else  // HAVE_U2F_DEP
+
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-#endif // HAVE_U2F_DEP
+
     // Display back the original UX
     ui_idle();
     return 0; // do not redraw the widget
@@ -1988,17 +1840,9 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
 
-#ifdef HAVE_U2F_DEP
-    if (fidoActivated) {
-        u2f_proxy_response((u2f_service_t *)&u2fService, signatureLength);
-    } else {
-        // Send back the response, do not restart the event loop
-        io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
-    }
-#else  // HAVE_U2F_DEP
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
-#endif // HAVE_U2F_DEP
+
 
     // Display back the original UX
     ui_idle();
@@ -2048,17 +1892,9 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
 
-#ifdef HAVE_U2F_DEP
-    if (fidoActivated) {
-        u2f_proxy_response((u2f_service_t *)&u2fService, signatureLength);
-    } else {
-        // Send back the response, do not restart the event loop
-        io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
-    }
-#else  // HAVE_U2F_DEP
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, signatureLength);
-#endif // HAVE_U2F_DEP
+
 
     // Display back the original UX
     ui_idle();
@@ -2070,17 +1906,10 @@ unsigned int io_seproxyhal_touch_tx_cancel(const bagl_element_t *e)
 {
     G_io_apdu_buffer[0] = 0x69;
     G_io_apdu_buffer[1] = 0x85;
-#ifdef HAVE_U2F_DEP
-    if (fidoActivated) {
-        u2f_proxy_response((u2f_service_t *)&u2fService, 2);
-    } else {
-        // Send back the response, do not restart the event loop
-        io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-    }
-#else  // HAVE_U2F_DEP
+
     // Send back the response, do not restart the event loop
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-#endif // HAVE_U2F_DEP
+
     // Display back the original UX
     ui_idle();
     return 0; // do not redraw the widget
@@ -2381,13 +2210,13 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             THROW(BTCHIP_SW_INCORRECT_DATA);
         }
 
-        tmpCtx.transactionContext.headervalid = 1;
+        tmpCtx.transactionContext.headervalid = HEADER_TYPE_TXSIGN;
     break;
 
     case P1_MORE: //LEDGER-REVIEW: this case should check if a call with P1_FIRST has been executed previously, and throw if not
 
         //DB: Corrected check
-        if ( !tmpCtx.transactionContext.headervalid )
+        if ( tmpCtx.transactionContext.headervalid != HEADER_TYPE_TXSIGN )
         {
             THROW(BTCHIP_SW_INCORRECT_P1_P2);
         }
@@ -2414,6 +2243,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         THROW(0x9000);
     }
 
+    //reset header check now that we have valid data
     tmpCtx.transactionContext.headervalid = 0;
 
 #if WANT_INVALID_BUFFER_CHECK
@@ -2646,12 +2476,12 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             THROW(BTCHIP_SW_INCORRECT_DATA);
         }
 
-        tmpCtx.transactionContext.headervalid = 1;
+        tmpCtx.transactionContext.headervalid = HEADER_TYPE_COMMITSIGN;
         break;
     case P1_MORE: //LEDGER-REVIEW: this case should check if a call with P1_FIRST has been executed previously, and throw if not
 
         //DB: Corrected check for P1_FIRST being called
-        if ( !tmpCtx.transactionContext.headervalid )
+        if ( tmpCtx.transactionContext.headervalid != HEADER_TYPE_COMMITSIGN )
         {
              THROW(BTCHIP_SW_INCORRECT_P1_P2);
         }
@@ -2986,18 +2816,7 @@ __attribute__((section(".boot"))) int main(void) {
                               sizeof(internalStorage_t));
                 }
 
-#ifdef HAVE_U2F_DEP
-                os_memset((unsigned char *)&u2fService, 0, sizeof(u2fService));
-                u2fService.inputBuffer = G_io_apdu_buffer;
-                u2fService.outputBuffer = G_io_apdu_buffer;
-                u2fService.messageBuffer = (uint8_t *)u2fMessageBuffer;
-                u2fService.messageBufferSize = U2F_MAX_MESSAGE_SIZE;
-                u2f_initialize_service((u2f_service_t *)&u2fService);
-
-                USB_power_U2F(1, N_storage.fidoTransport);
-#else  // HAVE_U2F_DEP
                 USB_power(1);
-#endif // HAVE_U2F_DEP
 
                 ui_idle();
 
