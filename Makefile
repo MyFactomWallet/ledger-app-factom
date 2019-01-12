@@ -21,12 +21,11 @@ endif
 include $(BOLOS_SDK)/Makefile.defines
 
 APPNAME = Factom
-#APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --path "44'/143165576'"  --curve secp256k1 --curve ed25519 $(COMMON_LOAD_PARAMS) 
-APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --curve secp256k1 --curve ed25519 $(COMMON_LOAD_PARAMS) 
+APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --path "44'/143165576'"  --curve secp256k1 $(COMMON_LOAD_PARAMS) 
 
 APPVERSION_M=1
 APPVERSION_N=1
-APPVERSION_P=3
+APPVERSION_P=5
 APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 DEFINES   += UNUSED\(x\)=\(void\)x
 DEFINES   += APPVERSION=\"$(APPVERSION)\"
@@ -55,6 +54,7 @@ DEFINES   += PRINTF\(...\)=
 DEFINES   += HAVE_IO_USB HAVE_L4_USBLIB IO_USB_MAX_ENDPOINTS=6 IO_HID_EP_LENGTH=64 HAVE_USB_APDU
 DEFINES   +=  LEDGER_MAJOR_VERSION=$(APPVERSION_M) LEDGER_MINOR_VERSION=$(APPVERSION_N) LEDGER_PATCH_VERSION=$(APPVERSION_P)
 
+
 # U2F
 DEFINES   += HAVE_U2F HAVE_IO_U2F
 DEFINES   += USB_SEGMENT_SIZE=64
@@ -69,7 +69,7 @@ DEFINES   += U2F_PROXY_MAGIC=\"TFA\"
 CC       := $(CLANGPATH)clang 
 
 #CFLAGS   += -O0
-CFLAGS   += -O3 -Os
+CFLAGS   += -O3 -Os -I/proj/MFW/Ledger/bolos_env/./gcc-arm-none-eabi-5_3-2016q1/arm-none-eabi/include/
 
 AS     := $(GCCPATH)arm-none-eabi-gcc
 LD       := $(GCCPATH)arm-none-eabi-gcc
