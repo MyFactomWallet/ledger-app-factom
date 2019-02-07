@@ -72,6 +72,7 @@ uint32_t set_result_get_publicKey(void);
 #define INS_COMMIT_SIGN 0x12
 #define INS_SIGN_MESSAGE_HASH 0x14
 #define INS_SIGN_RAW_MESSAGE_WITH_ID 0x16
+#define INS_STORE_CHAIN_ID 0x18
 
 #define COIN_TYPE_ID  143165576
 #define COIN_TYPE_EC  132
@@ -106,7 +107,13 @@ typedef struct publicKeyContext_t {
     uint8_t address[56];//factom addresses are 52 bytes, ID's are 55 bytes
     uint8_t chainCode[32];
     bool getChaincode;
+    bool getidentity;
 } publicKeyContext_t;
+
+typedef struct chainidContext_t {
+    uint8_t chainId[32];
+} chainidContext_t;
+
 
 #define HEADER_TYPE_TXSIGN 1
 #define HEADER_TYPE_COMMITSIGN 2
@@ -157,6 +164,7 @@ union {
     publicKeyContext_t publicKeyContext;
     transactionContext_t transactionContext;
     messageSigningContext_t messageSigningContext;
+    chainidContext_t chainidContext;
 //    rawMessageSigningContext_t rawMessageSigningContext;
 } tmpCtx;
 
@@ -191,9 +199,8 @@ unsigned int ux_step;
 unsigned int ux_step_count;
 
 typedef struct internalStorage_t {
-    uint8_t dataAllowed;
-    uint8_t fidoTransport;
     uint8_t initialized;
+    uint8_t chainid[32];
 } internalStorage_t;
 
 WIDE internalStorage_t N_storage_real;
@@ -367,14 +374,15 @@ const ux_menu_entry_t menu_about[] = {
     UX_MENU_END};
 
 const ux_menu_entry_t menu_batchmode[] = {
-    {NULL, menu_batchmode_enable, 0, NULL, "Identity Batch", "Sign Enabled", 0, 0},
-    {menu_main, menu_batchmode_disable, 2, &C_icon_back, "Exit Batch", NULL, 61, 40},
+    {NULL, NULL, 0, NULL, "Identity Batch", "Sign Enabled", 0, 0},
+    {NULL, menu_batchmode_disable, 2, &C_icon_back, "Exit Batch", NULL, 61, 40},
     UX_MENU_END};
 
 const ux_menu_entry_t menu_main[] = {
     {NULL, NULL, 0, &C_icon_mfw, "Use MFW to", "view wallet", 33, 12},
     //{menu_settings, NULL, 0, NULL, "Settings", NULL, 0, 0},
-    {menu_batchmode, NULL, 0, NULL, "ID Batch Sign", NULL, 0, 0},
+    //{menu_batchmode, menu_batchmode_enable, 0, NULL, "ID Batch Sign", NULL, 0, 0},
+    {NULL, menu_batchmode_enable, 0, NULL, "ID Batch Sign", NULL, 0, 0},
     {menu_about, NULL, 0, NULL, "About", NULL, 0, 0},
     {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
     UX_MENU_END};
@@ -384,7 +392,7 @@ void menu_batchmode_enable(unsigned int ignore) {
     UNUSED(ignore);
     batchModeEnabled = 1;
     // go back to the batchmode options menu 
-    //UX_MENU_DISPLAY(0, menu_batchmode, NULL);
+    UX_MENU_DISPLAY(0, menu_batchmode, NULL);
 }
 
 void menu_batchmode_disable(unsigned int ignore) {
@@ -392,6 +400,7 @@ void menu_batchmode_disable(unsigned int ignore) {
      batchModeEnabled = 0;
      // go back to the batchmode options menu 
      //UX_MENU_DISPLAY(0, menu_batchmode, NULL);
+     UX_MENU_DISPLAY(0, menu_main, NULL);
 }
 
 #endif // #if defined(TARGET_NANOS)
@@ -1809,9 +1818,64 @@ const bagl_element_t ui_approval_nanos_id[] = {
 };
 
 
+const bagl_element_t ui_approval_nanos_store_chainid[] = {
+    // type                               userid    x    y   w    h  str rad
+    // fill      fg        bg      fid iid  txt   touchparams...       ]
+    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
+      0, 0},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_CROSS},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_CHECK},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    //{{BAGL_ICON                           , 0x01,  21,   9,  14,  14, 0, 0, 0
+    //, 0xFFFFFF, 0x000000, 0, BAGL_GLYPH_ICON_TRANSACTION_BADGE  }, NULL, 0, 0,
+    // 0, NULL, NULL, NULL },
+     {{BAGL_LABELINE, 0x01, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     "Confirm",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     (char*)addressSummary,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+};
+
 unsigned int ui_approval_prepro_id(const bagl_element_t *element) {
     unsigned int display = 1;
-    //if ( batchModeEnabled ) return 0;
+    if ( batchModeEnabled ) return 0;
     if (element->component.userid > 0) {
         display = (ux_step == element->component.userid - 1);
         //if we are on the address and amount then repeat for all outputs
@@ -1881,6 +1945,41 @@ unsigned int ui_approval_prepro_ec(const bagl_element_t *element) {
 }
 
 
+unsigned int ui_approval_prepro_store_chainid(const bagl_element_t *element) {
+    unsigned int display = 1;
+    if (element->component.userid > 0) {
+        display = (ux_step == element->component.userid - 1);
+        //if we are on the address and amount then repeat for all outputs
+        if (display) {
+            switch (element->component.userid) {
+            case 1:
+                UX_CALLBACK_SET_INTERVAL(2000);
+                break;
+            case 2:
+                if (dataPresent) {
+                    UX_CALLBACK_SET_INTERVAL(2000);
+                } else {
+                    display = 0;
+                    ux_step++; // display the next step
+                }
+                break;
+            case 3:
+                UX_CALLBACK_SET_INTERVAL(MAX(
+                    3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
+                break;
+            case 4:
+                UX_CALLBACK_SET_INTERVAL(3000);
+                break;
+            case 5:
+                UX_CALLBACK_SET_INTERVAL(MAX(
+                    3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
+                break;
+            }
+        }
+    }
+    return display;
+}
+
 unsigned int ui_approval_nanos_button(unsigned int button_mask,
                                       unsigned int button_mask_counter);
 
@@ -1893,7 +1992,14 @@ void ui_idle(void) {
 #if defined(TARGET_BLUE)
     UX_DISPLAY(ui_idle_blue, NULL);
 #elif defined(TARGET_NANOS)
-    UX_MENU_DISPLAY(0, menu_main, NULL);
+    if ( batchModeEnabled )
+    {
+      UX_MENU_DISPLAY(0, menu_batchmode, NULL);
+    }
+    else
+    {
+      UX_MENU_DISPLAY(0, menu_main, NULL);
+    }
 #endif // #if TARGET_ID
 }
 
@@ -2116,6 +2222,28 @@ unsigned int io_seproxyhal_touch_id_tx_ok(const bagl_element_t *e)
     return 0; // do not redraw the widget
 }
 
+unsigned int io_seproxyhal_touch_store_chainid_ok(const bagl_element_t *e)
+{
+
+    internalStorage_t storage;
+    storage.initialized = 0x01;
+    os_memmove(storage.chainid, tmpCtx.chainidContext.chainId, sizeof(storage.chainid));
+    nvm_write(&N_storage, (void *)&storage, sizeof(internalStorage_t));
+
+    //storage a success
+    G_io_apdu_buffer[0] = 0x90;
+    G_io_apdu_buffer[1] = 0x00;
+
+    // Send back the response, do not restart the event loop
+    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+
+    // Display back the original UX
+    ui_idle();
+
+    return 0; // do not redraw the widget
+}
+
+
 unsigned int io_seproxyhal_touch_tx_cancel(const bagl_element_t *e)
 {
     G_io_apdu_buffer[0] = 0x69;
@@ -2209,6 +2337,21 @@ unsigned int ui_approval_nanos_id_button(unsigned int button_mask,
    return 0;
 }
 
+unsigned int ui_approval_nanos_store_chainid_button(unsigned int button_mask,
+                                         unsigned int button_mask_counter)
+{
+    switch (button_mask)
+    {
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT:
+             io_seproxyhal_touch_tx_cancel(NULL);
+             break;
+        case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
+             io_seproxyhal_touch_store_chainid_ok(NULL);
+             break;
+    };
+   return 0;
+}
+
 #endif // #if defined(TARGET_NANOS)
 
 unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
@@ -2248,6 +2391,10 @@ uint32_t set_result_get_publicKey() {
     if (tmpCtx.publicKeyContext.getChaincode) {
         os_memmove(G_io_apdu_buffer + tx, tmpCtx.publicKeyContext.chainCode,
                    32);
+        tx += 32;
+    }
+    if (tmpCtx.publicKeyContext.getidentity) {
+        os_memmove(G_io_apdu_buffer + tx, N_storage.chainid, sizeof(N_storage.chainid));
         tx += 32;
     }
     return tx;
@@ -2299,7 +2446,7 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     {
         keytype = PUBLIC_OFFSET_EC;
     }
-    else if ( (uint32_t)bip32Path[1] == 0x88888888 )
+    else if ( (uint32_t)bip32Path[1] == FACTOM_ID_TYPE )
     {
         keytype = PUBLIC_OFFSET_ID;
     } 
@@ -2345,8 +2492,9 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         os_memset(tmpCtx.publicKeyContext.publicKey.W, 0, 65);
         tmpCtx.publicKeyContext.publicKey.W_len = sizeof(key);
         os_memmove(tmpCtx.publicKeyContext.publicKey.W, key,sizeof(key));
-
     }
+
+    tmpCtx.publicKeyContext.getidentity = ( keytype == PUBLIC_OFFSET_ID ) ? 0x01 : 0x00;
 
     //convert the public key to an address
     //publicKey is RCD or EC Key
@@ -2360,8 +2508,6 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         *tx = set_result_get_publicKey();
         THROW(0x9000);
     } else {
-        *tx = set_result_get_publicKey();
-
         // prepare for a UI based reply
         skipWarning = false;
 #if defined(TARGET_BLUE)
@@ -2391,7 +2537,13 @@ void handleGetAppConfiguration(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     UNUSED(workBuffer);
     UNUSED(dataLength);
     UNUSED(flags);
-    G_io_apdu_buffer[0] = (N_storage.dataAllowed ? 0x01 : 0x00);
+    uint32_t chainidset = 0;
+    for ( int i = 0; i < sizeof(N_storage.chainid); ++i )
+    {
+        chainidset += N_storage.chainid[i];
+    }
+
+    G_io_apdu_buffer[0] = (chainidset) ? 0x01 : 0x00;
     G_io_apdu_buffer[1] = LEDGER_MAJOR_VERSION;
     G_io_apdu_buffer[2] = LEDGER_MINOR_VERSION;
     G_io_apdu_buffer[3] = LEDGER_MAJOR_VERSION;
@@ -2565,6 +2717,36 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 
 #if WANT_FACTOM_IDENTITY
 
+void handleStoreChainId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
+                  uint16_t dataLength,
+                  volatile unsigned int *flags,
+                  volatile unsigned int *tx)
+{
+    UNUSED(tx);
+
+    if ( dataLength != 32 )
+    {
+        THROW(BTCHIP_SW_INCORRECT_DATA);
+    }
+    os_memmove(&tmpCtx.chainidContext.chainId,workBuffer,32);
+    snprintf(addressSummary,sizeof(addressSummary),"Store Chain ID?");
+
+    ux_step_count = 0;
+    ux_step = 0;
+
+#if defined(TARGET_BLUE)
+    ux_step_count = 0;
+    ui_approval_transaction_blue_init();
+#elif defined(TARGET_NANOS)
+
+    UX_DISPLAY(ui_approval_nanos_store_chainid, ui_approval_prepro_store_chainid);
+    *flags |= IO_ASYNCH_REPLY;
+
+#endif
+
+    *tx = 0;
+}
+
 void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
                   uint16_t dataLength,
                   volatile unsigned int *flags,
@@ -2650,10 +2832,18 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
 #elif defined(TARGET_NANOS)
-    UX_DISPLAY(ui_approval_nanos_ec, ui_approval_prepro_ec);
+    if ( batchModeEnabled )
+    {
+        io_seproxyhal_touch_id_tx_ok(NULL);
+    }
+    else
+    {
+        UX_DISPLAY(ui_approval_nanos_ec, ui_approval_prepro_ec);
+        // UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
+        *flags |= IO_ASYNCH_REPLY;
+    }
 #endif
 
-    *flags |= IO_ASYNCH_REPLY;
     *tx = 0;
 }
 
@@ -2707,15 +2897,15 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 	//tokens under FCT's or EC's allow hash signing for transactions
         if ( tmpCtx.messageSigningContext.bip32Path[1] == FCT_TYPE )
         {
-            os_memmove(sign_magic, "FCT ", 4);
+            os_memmove(sign_magic, "FCT", 3);
             os_memmove(sign_magic, SIGNMAGIC, SIGNMAGIC_LENGTH);
-            sign_magic_len = 4 + SIGNMAGIC_LENGTH;
+            sign_magic_len = 3 + SIGNMAGIC_LENGTH;
         }
         else if ( tmpCtx.messageSigningContext.bip32Path[1] == EC_TYPE )
         {
-            os_memmove(sign_magic, "EC ", 3);
+            os_memmove(sign_magic, "EC", 2);
             os_memmove(sign_magic, SIGNMAGIC, SIGNMAGIC_LENGTH);
-            sign_magic_len = 3 + SIGNMAGIC_LENGTH;
+            sign_magic_len = 2 + SIGNMAGIC_LENGTH;
         }
         
 
@@ -2837,10 +3027,17 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
 #elif defined(TARGET_NANOS)
-    UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
+    if ( msg.bip32Path[1] == FACTOM_ID_TYPE && batchModeEnabled )
+    {
+       io_seproxyhal_touch_id_tx_ok(NULL);
+    }
+    else
+    {
+        UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
+        *flags |= IO_ASYNCH_REPLY;
+    }
 #endif
 
-    *flags |= IO_ASYNCH_REPLY;
     *tx = 0;
 }
 
@@ -3034,11 +3231,18 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
-        case INS_SIGN_RAW_MESSAGE_WITH_ID:
+            case INS_SIGN_RAW_MESSAGE_WITH_ID:
                 handleSignRawMessageWithId(G_io_apdu_buffer[OFFSET_P1],
                            G_io_apdu_buffer[OFFSET_P2],
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
+                break;
+            case INS_STORE_CHAIN_ID:
+                handleStoreChainId(G_io_apdu_buffer[OFFSET_P1],
+                                   G_io_apdu_buffer[OFFSET_P2],
+                                   G_io_apdu_buffer + OFFSET_CDATA,
+                                   G_io_apdu_buffer[OFFSET_LC], flags, tx);
+                break;
 #endif
 
             case INS_GET_APP_CONFIGURATION:
@@ -3084,6 +3288,7 @@ void sample_main(void) {
     volatile unsigned int rx = 0;
     volatile unsigned int tx = 0;
     volatile unsigned int flags = 0;
+
 
     // DESIGN NOTE: the bootloader ignores the way APDU are fetched. The only
     // goal is to retrieve APDU.
@@ -3231,14 +3436,16 @@ __attribute__((section(".boot"))) int main(void) {
 
                 if (N_storage.initialized != 0x01) {
                     internalStorage_t storage;
-                    storage.fidoTransport = 0x00;
+                    //storage.fidoTransport = 0x00;
                     storage.initialized = 0x01;
+                    os_memset(storage.chainid, 0, sizeof(storage.chainid));
                     nvm_write(&N_storage, (void *)&storage,
                               sizeof(internalStorage_t));
                 }
 
                 USB_power(1);
 
+                batchModeEnabled = 0;
                 ui_idle();
 
 #if defined(TARGET_BLUE)

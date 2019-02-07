@@ -24,8 +24,8 @@ APPNAME = Factom
 APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --path "44'/143165576'"  --curve secp256k1 $(COMMON_LOAD_PARAMS) 
 
 APPVERSION_M=1
-APPVERSION_N=1
-APPVERSION_P=5
+APPVERSION_N=2
+APPVERSION_P=0
 APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 DEFINES   += UNUSED\(x\)=\(void\)x
 DEFINES   += APPVERSION=\"$(APPVERSION)\"
@@ -69,7 +69,7 @@ DEFINES   += U2F_PROXY_MAGIC=\"TFA\"
 CC       := $(CLANGPATH)clang 
 
 #CFLAGS   += -O0
-CFLAGS   += -O3 -Os -I/proj/MFW/Ledger/bolos_env/./gcc-arm-none-eabi-5_3-2016q1/arm-none-eabi/include/
+CFLAGS   += -O3 -Os -I$(GCCPATH)/../arm-none-eabi/include/
 
 AS     := $(GCCPATH)arm-none-eabi-gcc
 LD       := $(GCCPATH)arm-none-eabi-gcc
