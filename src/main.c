@@ -3016,6 +3016,7 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             break;
         case EC_TYPE:
             snprintf(addressSummary,sizeof(addressSummary),"Sign w/EC Addr");
+	    break;
         default:
             THROW(0x6B00);
     };
