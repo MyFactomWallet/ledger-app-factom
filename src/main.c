@@ -59,7 +59,7 @@ uint32_t set_result_get_publicKey(void);
 
 #define HASH_TYPE_SHA512 1
 
-#define FACTOM_ID_TYPE 0x88888888
+#define FACTOM_ID_TYPE 0x80000119
 #define FCT_TYPE       0x80000083 
 #define EC_TYPE        0x80000084
 
