@@ -22,7 +22,7 @@ include $(BOLOS_SDK)/Makefile.defines
 
 APPNAME = Factom
 
-APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --path "44'/143165576'"  --curve secp256k1 $(COMMON_LOAD_PARAMS) 
+APP_LOAD_PARAMS=--appFlags 0x40 --path "44'/131'" --path "44'/132'" --path "44'/281'"  --curve secp256k1 $(COMMON_LOAD_PARAMS) 
 
 APPVERSION_M=1
 APPVERSION_N=2
