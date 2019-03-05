@@ -74,7 +74,7 @@ uint32_t set_result_get_publicKey(void);
 #define INS_SIGN_RAW_MESSAGE_WITH_ID 0x16
 #define INS_STORE_CHAIN_ID 0x18
 
-#define COIN_TYPE_ID  143165576
+#define COIN_TYPE_ID  281
 #define COIN_TYPE_EC  132
 #define COIN_TYPE_FCT 131
 
