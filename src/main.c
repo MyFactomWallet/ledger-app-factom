@@ -75,7 +75,7 @@ uint32_t set_result_get_publicKey(void);
 #define INS_STORE_CHAIN_ID 0x18
 
 #define COIN_TYPE_ID  281
-#define COIN_TYPE_EC  132
+#define COIN_TYPE_EC 132
 #define COIN_TYPE_FCT 131
 
 
@@ -101,6 +101,8 @@ uint32_t set_result_get_publicKey(void);
 #define TX_MAX_AMT_ADDR_SIZE (8+32)
 #define TX_MAX_AMT_ADDR_COUNT MAX_OUTPUTS
 #define MAX_RAW_TX TX_HEADER_SIZE + MAX_OUTPUTS * TX_MAX_AMT_ADDR_SIZE + TX_MAX_AMT_ADDR_SIZE //200
+
+#define ERROR_TARGET_NOT_SUPPORTED 0x6666
 
 typedef struct publicKeyContext_t {
     cx_ecfp_public_key_t publicKey;
@@ -193,17 +195,26 @@ volatile txContentAddress_t *addresses[MAX_OUTPUTS];
 
 bagl_element_t tmp_element;
 
+#ifdef TARGET_NANOX
+#include "ux.h"
+ux_state_t G_ux;
+bolos_ux_params_t G_ux_params;
+#else // TARGET_NANOX
 ux_state_t ux;
+#endif // TARGET_NANOX
+
 // display stepped screens
 unsigned int ux_step;
 unsigned int ux_step_count;
 
 typedef struct internalStorage_t {
+    uint8_t dataAllowed;
+    uint8_t fidoTransport;
     uint8_t initialized;
     uint8_t chainid[32];
 } internalStorage_t;
 
-WIDE internalStorage_t N_storage_real;
+WIDE internalStorage_t const N_storage_real;
 #define N_storage (*(WIDE internalStorage_t *)PIC(&N_storage_real))
 
 
@@ -1529,10 +1540,10 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     display_address_offset:
                     if ( addresses[offset] )
                     {
-                        os_memset((void*)fullAddress, 0, sizeof(fullAddress));
+			os_memset((void*)fullAddress, 0, sizeof(fullAddress));
                         getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->rcdhash,(uint8_t*)fullAddress, addresses_type[offset]);
 
-                        os_memset((void*)addressSummary, 0, sizeof(addressSummary));
+			os_memset((void*)addressSummary, 0, sizeof(addressSummary));
                         os_memmove((void *)addressSummary, (void*)fullAddress, 10);
                         os_memmove((void *)(addressSummary + 10), "..", 2);
                         os_memmove((void *)(addressSummary + 12),
@@ -1987,6 +1998,278 @@ unsigned int ui_approval_nanos_button(unsigned int button_mask,
 
 #endif // #if defined(TARGET_NANOS)
 
+#if defined(TARGET_NANOX)
+
+const char* settings_submenu_getter(unsigned int idx);
+void settings_submenu_selector(unsigned int idx);
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Public keys export submenu:
+
+void settings_batchmode_change(unsigned int enabled) {
+    batchModeEnabled = enabled;
+    ui_idle();
+}
+
+const char* const settings_batchmode_getter_values[] = {
+  "Sign disabled",
+  "Manual enabled",
+  "Back"
+};
+
+const char* settings_batchmode_getter(unsigned int idx) {
+  if (idx < ARRAYLEN(settings_batchmode_getter_values)) {
+    return settings_batchmode_getter_values[idx];
+  }
+  return NULL;
+}
+
+void settings_batchmode_selector(unsigned int idx) {
+  switch(idx) {
+    case 0:
+      settings_batchmode_change(0);
+      break;
+    case 1:
+      settings_batchmode_change(1);
+      break;
+    default:
+      ux_menulist_init(0, settings_submenu_getter, settings_submenu_selector);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Settings menu:
+
+const char* const settings_submenu_getter_values[] = {
+  "ID Batch Sign",
+  "Back",
+};
+
+const char* settings_submenu_getter(unsigned int idx) {
+  if (idx < ARRAYLEN(settings_submenu_getter_values)) {
+    return settings_submenu_getter_values[idx];
+  }
+  return NULL;
+}
+
+void settings_submenu_selector(unsigned int idx) {
+  switch(idx) {
+    case 0:
+      ux_menulist_init_select(0, settings_batchmode_getter, settings_batchmode_selector, batchModeEnabled);
+      break;
+    default:
+      ui_idle();
+  }
+}
+
+//////////////////////////////////////////////////////////////////////
+UX_STEP_NOCB(
+    ux_idle_flow_1_step, 
+    pnn, 
+    {
+      &C_nanos_app_factom,
+      "Use MFW to",
+      "view wallet",
+    });
+UX_STEP_VALID(
+    ux_idle_flow_2_step,
+    pb,
+    ux_menulist_init(0, settings_submenu_getter, settings_submenu_selector),
+    {
+      &C_icon_coggle,
+      "Settings",
+    });
+UX_STEP_NOCB(
+    ux_idle_flow_3_step, 
+    bnnn, 
+    {
+      "Version",
+      APPVERSION,
+      "The Factoid Authority",
+      "ledger@factoid.org"
+    });
+UX_STEP_VALID(
+    ux_idle_flow_4_step,
+    pb,
+    os_sched_exit(-1),
+    {
+      &C_icon_dashboard_x,
+      "Quit",
+    });
+UX_FLOW(ux_idle_flow,
+  &ux_idle_flow_1_step,
+  &ux_idle_flow_2_step,
+  &ux_idle_flow_3_step,
+  &ux_idle_flow_4_step
+);
+
+//////////////////////////////////////////////////////////////////////
+
+void display_next_state(bool is_upper_border);
+
+UX_STEP_NOCB(ux_confirm_full_flow_1_step, 
+    pnn, 
+    {
+      &C_icon_eye,
+      "Review",
+      "transaction",
+    });
+UX_STEP_INIT(
+    ux_init_upper_border,
+    NULL,
+    NULL,
+    {
+        display_next_state(true);
+    });
+UX_STEP_NOCB(
+    ux_variable_display, 
+    bnnn_paging,
+    {
+      .title = fullAmount,
+      .text = fullAddress
+    });
+UX_STEP_INIT(
+    ux_init_lower_border,
+    NULL,
+    NULL,
+    {
+        display_next_state(false);
+    });
+UX_STEP_NOCB(
+    ux_confirm_full_flow_4_step, 
+    bnnn_paging,
+    {
+      .title = "Fees",
+      .text = maxFee,
+    });
+UX_STEP_VALID(
+    ux_confirm_full_flow_5_step, 
+    pbb, 
+    io_seproxyhal_touch_tx_ok(NULL),
+    {
+      &C_icon_validate_14,
+      "Accept",
+      "and send",
+    });
+UX_STEP_VALID(
+    ux_confirm_full_flow_6_step, 
+    pb, 
+    io_seproxyhal_touch_tx_cancel(NULL),
+    {
+      &C_icon_crossmark,
+      "Reject",
+    });
+// confirm_full: confirm transaction / Amount: fullAmount / Address: fullAddress / Fees: feesAmount
+UX_FLOW(ux_confirm_full_flow,
+  &ux_confirm_full_flow_1_step,
+  &ux_init_upper_border,
+  &ux_variable_display,
+  &ux_init_lower_border,
+  &ux_confirm_full_flow_4_step,
+  &ux_confirm_full_flow_5_step,
+  &ux_confirm_full_flow_6_step
+);
+
+uint8_t num_outputs;
+volatile uint8_t current_output;
+volatile uint8_t current_state;
+
+#define STATE_AMOUNT 0
+#define STATE_ADDRESS 1
+#define STATE_BORDER 2
+
+void set_state_data() {
+
+    switch (current_state)
+    {
+        case STATE_AMOUNT:
+            // set amount
+            strcpy(fullAmount, "Amount");
+            fct_print_amount(addresses[current_output]->value,(int8_t*)fullAddress,sizeof(fullAddress));
+            break;
+
+        case STATE_ADDRESS:
+            // set destination address
+            strcpy(fullAmount, "Destination");
+            os_memset((void*)fullAddress, 0, sizeof(fullAddress));
+            getFctAddressStringFromRCDHash((uint8_t*)addresses[current_output]->rcdhash,(uint8_t*)fullAddress, addresses_type[current_output]);
+            break;
+    
+        default:
+            break;
+    }
+
+}
+
+void display_next_state(bool is_upper_border){
+
+    if(is_upper_border){ // when pressing left button
+        if(current_state == STATE_BORDER){
+            current_state = STATE_AMOUNT;
+            set_state_data();
+            ux_flow_next();
+        }
+        else{
+            if(current_state == STATE_AMOUNT){
+                if(current_output>1){
+                    current_state = STATE_ADDRESS;
+                    current_output--;
+                    set_state_data();
+                    ux_flow_next();
+                }
+                else{
+                    current_state = STATE_BORDER;
+                    current_output = 0;
+                    ux_flow_prev();
+                }
+            }
+            else if(current_state == STATE_ADDRESS){
+                current_state = STATE_AMOUNT;
+                set_state_data();
+                ux_flow_next();
+            }
+        }
+    }
+    else // when pressing right button
+    {
+        if(current_state == STATE_BORDER){
+            current_state = STATE_ADDRESS;
+            set_state_data();
+            ux_flow_prev();
+        }
+        else{
+            if(current_state == STATE_AMOUNT){
+                current_state = STATE_ADDRESS;
+                set_state_data();
+
+                /*dirty hack to have coherent behavior on bnnn_paging when there are multiple screens*/
+                G_ux.flow_stack[G_ux.stack_count-1].prev_index = G_ux.flow_stack[G_ux.stack_count-1].index-2;
+                G_ux.flow_stack[G_ux.stack_count-1].index--;
+                ux_flow_relayout();
+                /*end of dirty hack*/
+            }
+            else if(current_state == STATE_ADDRESS){
+                if(current_output<num_outputs-1){
+                    current_state = STATE_AMOUNT;
+                    current_output++;
+                    set_state_data();
+                    ux_flow_prev();
+                }
+                else{
+                    current_state = STATE_BORDER;
+                    ux_flow_next();
+                }
+            }
+        }
+    }
+    
+    
+}
+
+//////////////////////////////////////////////////////////////////////
+
+#endif
+
 void ui_idle(void) {
     skipWarning = false;
 #if defined(TARGET_BLUE)
@@ -1998,8 +2281,14 @@ void ui_idle(void) {
     }
     else
     {
-      UX_MENU_DISPLAY(0, menu_main, NULL);
+    UX_MENU_DISPLAY(0, menu_main, NULL);
     }
+#elif defined(TARGET_NANOX)
+    // reserve a display stack slot if none yet
+    if(G_ux.stack_count == 0) {
+        ux_stack_push();
+    }
+    ux_flow_init(0, ux_idle_flow, NULL);
 #endif // #if TARGET_ID
 }
 
@@ -2146,7 +2435,7 @@ unsigned int io_seproxyhal_touch_ec_tx_ok(const bagl_element_t *e)
     getCompressedPublicKey(&tmpCtx.publicKeyContext.publicKey,
                                G_io_apdu_buffer, 32);
     signatureLength+=32;
-    
+
     //append success
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
@@ -2705,9 +2994,12 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
 #elif defined(TARGET_NANOS)
-
     UX_DISPLAY(ui_approval_nanos, ui_approval_prepro);
-
+#elif defined(TARGET_NANOX)
+    current_output = 0;
+    num_outputs = output_ct;
+    current_state = STATE_BORDER;
+    ux_flow_init(0, ux_confirm_full_flow, NULL);
 #endif // #if TARGET
 
     *flags |= IO_ASYNCH_REPLY;
@@ -2738,10 +3030,10 @@ void handleStoreChainId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
 #elif defined(TARGET_NANOS)
-
     UX_DISPLAY(ui_approval_nanos_store_chainid, ui_approval_prepro_store_chainid);
     *flags |= IO_ASYNCH_REPLY;
-
+#elif defined(TARGET_NANOX)
+    THROW(ERROR_TARGET_NOT_SUPPORTED);
 #endif
 
     *tx = 0;
@@ -2760,9 +3052,9 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         tmpCtx.transactionContext.pathLength = workBuffer[0];
         if ((tmpCtx.transactionContext.pathLength < 0x01) ||
             (tmpCtx.transactionContext.pathLength > MAX_BIP32_PATH))
-	{
+        {
             THROW(0x6a80);
-	}
+        }
         workBuffer++;
         dataLength--;
 	if ( dataLength == 0 )
@@ -2771,28 +3063,28 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 	}
 
         for (int i = 0; i < tmpCtx.transactionContext.pathLength; i++)
-	{
+        {
             tmpCtx.transactionContext.bip32Path[i] =
-               (workBuffer[0] << 24) |
-               (workBuffer[1] << 16) |
-               (workBuffer[2] << 8)  |
-               (workBuffer[3]);
+                (workBuffer[0] << 24) |
+                (workBuffer[1] << 16) |
+                (workBuffer[2] << 8)  |
+                (workBuffer[3]);
             workBuffer += 4;
             dataLength -= 4;
         }
-
+ 
         //only support factom_id type siging of raw data, throw exception otherwise.
         if ( tmpCtx.transactionContext.bip32Path[1] != FACTOM_ID_TYPE )
         {
             THROW(BTCHIP_SW_INCORRECT_DATA);
         }
-
+        
 	tmpCtx.transactionContext.headervalid = HEADER_TYPE_RAWSIGN;
 
         os_memmove(tmpCtx.transactionContext.rawTx, workBuffer, dataLength);
         tmpCtx.transactionContext.rawTxLength = dataLength;
 
-	break;
+        break;
     case P1_MORE:
         if ( tmpCtx.transactionContext.headervalid != HEADER_TYPE_RAWSIGN )
 	{
@@ -2804,11 +3096,11 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
             //Transaction too large for device
             THROW(0x6A80);
-        } 
+        }
 
         os_memmove(&tmpCtx.transactionContext.rawTx[tmpCtx.transactionContext.rawTxLength],
 	           workBuffer, dataLength);
-	tmpCtx.transactionContext.rawTxLength += dataLength;
+        tmpCtx.transactionContext.rawTxLength += dataLength;
 	break;
     default:
         THROW(0x6B00);
@@ -2842,6 +3134,8 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         // UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
         *flags |= IO_ASYNCH_REPLY;
     }
+#elif defined(TARGET_NANOX)
+    THROW(ERROR_TARGET_NOT_SUPPORTED);
 #endif
 
     *tx = 0;
@@ -2981,8 +3275,8 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     {
         THROW(0x9000);
     }
-    
 
+    
     //if we get this far, we need to reformat the message context into a transaction to sign the message
     messageSigningContext_t msg;
     os_memmove(&msg, &tmpCtx.messageSigningContext, sizeof(msg));
@@ -2997,7 +3291,7 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         os_memmove(tmpCtx.transactionContext.rawTx, 
                   msg.hashCtx.sha512.hash,
         tmpCtx.transactionContext.rawTxLength);
-    }
+}
     else
     {
         tmpCtx.transactionContext.rawTxLength = sizeof(msg.hashCtx.sha256.hash);
@@ -3037,6 +3331,8 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
         *flags |= IO_ASYNCH_REPLY;
     }
+#elif defined(TARGET_NANOX)
+    THROW(ERROR_TARGET_NOT_SUPPORTED);
 #endif
 
     *tx = 0;
@@ -3183,9 +3479,9 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
 #elif defined(TARGET_NANOS)
-
     UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
-
+#elif defined(TARGET_NANOX)
+    THROW(ERROR_TARGET_NOT_SUPPORTED);
 #endif // #if TARGET
 
     *flags |= IO_ASYNCH_REPLY;
@@ -3217,6 +3513,8 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
+#ifndef TARGET_NANOX
+
 #if WANT_ENTRY_COMMIT_SIGN
             case INS_COMMIT_SIGN:
                 handleCommitSign(G_io_apdu_buffer[OFFSET_P1],
@@ -3240,12 +3538,13 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                 break;
             case INS_STORE_CHAIN_ID:
                 handleStoreChainId(G_io_apdu_buffer[OFFSET_P1],
-                                   G_io_apdu_buffer[OFFSET_P2],
-                                   G_io_apdu_buffer + OFFSET_CDATA,
-                                   G_io_apdu_buffer[OFFSET_LC], flags, tx);
+                           G_io_apdu_buffer[OFFSET_P2],
+                           G_io_apdu_buffer + OFFSET_CDATA,
+                           G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
 #endif
 
+#endif // TARGET_NANOX
             case INS_GET_APP_CONFIGURATION:
                 handleGetAppConfiguration(
                     G_io_apdu_buffer[OFFSET_P1], G_io_apdu_buffer[OFFSET_P2],
@@ -3257,6 +3556,9 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                 THROW(0x6D00);
                 break;
             }
+        }
+        CATCH(EXCEPTION_IO_RESET) {
+            THROW(EXCEPTION_IO_RESET);
         }
         CATCH_OTHER(e) {
             switch (e & 0xF000) {
@@ -3314,7 +3616,12 @@ void sample_main(void) {
                     THROW(0x6982);
                 }
 
+                PRINTF("New APDU received:\n%.*H\n", rx, G_io_apdu_buffer);
+
                 handleApdu(&flags, &tx);
+            }
+            CATCH(EXCEPTION_IO_RESET) {
+                THROW(EXCEPTION_IO_RESET);
             }
             CATCH_OTHER(e) {
                 switch (e & 0xF000) {
@@ -3444,10 +3751,16 @@ __attribute__((section(".boot"))) int main(void) {
                               sizeof(internalStorage_t));
                 }
 
+                USB_power(0);
                 USB_power(1);
 
                 batchModeEnabled = 0;
                 ui_idle();
+
+#ifdef HAVE_BLE
+                BLE_power(0, NULL);
+                BLE_power(1, "Nano X");
+#endif // HAVE_BLE
 
 #if defined(TARGET_BLUE)
                 // setup the status bar colors (remembered after wards, even
@@ -3459,9 +3772,11 @@ __attribute__((section(".boot"))) int main(void) {
             }
             CATCH(EXCEPTION_IO_RESET) {
                 // reset IO and UX before continuing
+                CLOSE_TRY;
                 continue;
             }
             CATCH_ALL {
+                CLOSE_TRY;
                 break;
             }
             FINALLY {
