@@ -121,16 +121,10 @@ typedef struct chainidContext_t {
 #define HEADER_TYPE_COMMITSIGN 2
 #define HEADER_TYPE_MSGSIGN 3 
 #define HEADER_TYPE_RAWSIGN 4 
+#define HEADER_TYPE_FATSIGN 4
 
-typedef struct transactionContext_t {
-    uint8_t headervalid;
-    uint8_t pathLength;
-    uint32_t bip32Path[MAX_BIP32_PATH];
-    uint8_t rawTx[MAX_RAW_TX];
-    uint32_t rawTxLength;
-} transactionContext_t;
 
-typedef struct sha256_t { 
+typedef struct sha256_t {
     cx_sha256_t context;
     uint8_t hash[32];
 } sha256_t;
@@ -138,13 +132,22 @@ typedef struct sha256_t {
 typedef struct sha512_t {
     cx_sha512_t context;
     uint8_t hash[64];
-} sha512_t; 
-	
+} sha512_t;
+
 
 typedef union hashCtx_t {
     sha256_t sha256;
     sha512_t sha512;
 } hashCtx_t;
+
+typedef struct transactionContext_t {
+    uint8_t headervalid;
+    uint8_t pathLength;
+    uint32_t bip32Path[MAX_BIP32_PATH];
+    uint8_t rawTx[MAX_RAW_TX];
+    uint32_t rawTxLength;
+    hashCtx_t hashCtx;//added to support FAT signing.
+} transactionContext_t;
 
 typedef struct messageSigningContext_t {
     uint8_t headervalid;
@@ -179,8 +182,6 @@ union {
     cx_sha256_t sha2;
 } tmpContent;
 
-//fct/ec address length is 52, id length is 55
-#define FCT_ADDRESS_LENGTH 55
 
 volatile uint8_t dataAllowed;
 volatile uint8_t fidoTransport;
@@ -1541,7 +1542,14 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     if ( addresses[offset] )
                     {
 			os_memset((void*)fullAddress, 0, sizeof(fullAddress));
-                        getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->rcdhash,(uint8_t*)fullAddress, addresses_type[offset]);
+                        if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT)
+                        {
+                            strncpy(fullAddress,addresses[offset]->addr.fctaddr,52);
+                        }
+                        else
+                        {
+                            getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->addr.rcdhash,(uint8_t*)fullAddress, addresses_type[offset]);
+                        }
 
 			os_memset((void*)addressSummary, 0, sizeof(addressSummary));
                         os_memmove((void *)addressSummary, (void*)fullAddress, 10);
@@ -1702,8 +1710,11 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     }
                 // no break is intentional
                 case 20: // fees
-                    display = 20;
-                    goto display_detail;
+                    if ( strlen(maxFee) != 0 )
+                    {
+                        display = 20;
+                        goto display_detail;
+                    }
                 }
 
                 UX_CALLBACK_SET_INTERVAL(MAX(
@@ -3239,12 +3250,12 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
                 sizeof(tmpCtx.messageSigningContext.hashCtx.sha256.hash));
         }
 
-        tmpCtx.transactionContext.headervalid = HEADER_TYPE_MSGSIGN;
+        tmpCtx.messageSigningContext.headervalid = HEADER_TYPE_MSGSIGN;
         break;
     }
     case P1_MORE:
 
-        if ( tmpCtx.transactionContext.headervalid != HEADER_TYPE_MSGSIGN )
+        if ( tmpCtx.messageSigningContext.headervalid != HEADER_TYPE_MSGSIGN )
         {
             THROW(BTCHIP_SW_INCORRECT_P1_P2);
         }
@@ -3339,6 +3350,164 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 }
 
 #endif
+
+
+void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
+                  uint16_t dataLength,
+                  volatile unsigned int *flags,
+                  volatile unsigned int *tx)
+{
+    UNUSED(tx);
+
+
+    switch (p1)
+    {
+    case P1_FIRST:
+    {
+        os_memset(&tmpCtx.transactionContext,0,sizeof(tmpCtx.transactionContext));
+
+
+        tmpCtx.transactionContext.pathLength = workBuffer[0];
+        if ((tmpCtx.transactionContext.pathLength < 0x01) ||
+            (tmpCtx.transactionContext.pathLength > MAX_BIP32_PATH))
+        {
+            THROW(0x6a80);
+        }
+        workBuffer++;
+        dataLength--;
+
+        //now extract the pathing information
+        for (int i = 0; i < tmpCtx.transactionContext.pathLength; i++)
+        {
+            tmpCtx.transactionContext.bip32Path[i] =
+                (workBuffer[0] << 24) |
+                (workBuffer[1] << 16) |
+                (workBuffer[2] << 8)  |
+                (workBuffer[3]);
+            workBuffer += 4;
+            dataLength -= 4;
+        }
+
+        //tmpCtx.messageSigningContext.hashtype = HASH_TYPE_SHA512;//p2&0x01;
+        //workBuffer++;
+        //dataLength--;
+
+        //for now only support factom_id type siging.  throw exception otherwise.
+
+        //if ( tmpCtx.messageSigningContext.hashtype == HASH_TYPE_SHA512 )
+        {
+            cx_sha512_init(&tmpCtx.transactionContext.hashCtx.sha512.context);
+            //hash the first part of the data.
+            cx_hash(&tmpCtx.transactionContext.hashCtx.sha512.context, (p2&0x02)?CX_LAST:0,
+                    workBuffer, dataLength,
+                    tmpCtx.transactionContext.hashCtx.sha512.hash,
+                    sizeof(tmpCtx.transactionContext.hashCtx.sha512.hash));
+        }
+
+        tmpCtx.transactionContext.headervalid = HEADER_TYPE_FATSIGN;
+        break;
+    }
+    case P1_MORE:
+
+        if ( tmpCtx.transactionContext.headervalid != HEADER_TYPE_FATSIGN )
+        {
+            THROW(BTCHIP_SW_INCORRECT_P1_P2);
+        }
+
+
+        //if ( tmpCtx.messageSigningContext.hashtype == HASH_TYPE_SHA512)
+        {
+            //hash the first part of the data.
+            cx_hash(&tmpCtx.messageSigningContext.hashCtx.sha512.context, (p2&0x02)?CX_LAST:0,
+                workBuffer, dataLength,
+                tmpCtx.messageSigningContext.hashCtx.sha512.hash,
+                sizeof(tmpCtx.messageSigningContext.hashCtx.sha512.hash));
+        }
+
+        break;
+    default:
+        THROW(0x6B00);
+    };
+
+    if ( (p2&0x02) == 0 )
+    {
+        THROW(0x9000);
+    }
+
+    int ret = parseFatTx(tmpCtx.transactionContext.rawTx,
+                       tmpCtx.transactionContext.rawTxLength,
+                       &txContent);
+
+    if ( ret != USTREAM_FINISHED)
+    {
+        THROW(ret);
+    }
+
+
+    if ( txContent.header.inputcount < 1 )
+    {
+        THROW(USTREAM_FAULT_INPUT_COUNT);
+    }
+
+
+    if ( txContent.header.outputcount + txContent.header.ecpurchasecount > MAX_OUTPUTS )
+    {
+        THROW(USTREAM_FAULT_TOO_MANY_OUTPUTS);
+    }
+
+    // "confirm", amount, address, ..., amount[n], address[n], fee
+    os_memset((void*)addressSummary, 0, sizeof(addressSummary));
+    os_memset((void*)fullAmount, 0, sizeof(fullAmount));
+    for ( int i = 0; i < MAX_OUTPUTS; ++i )
+    {
+        addresses[i] = NULL;
+    }
+
+
+    ux_step_count = 2;
+    ux_step = 0;
+
+    maxFee[0] = 0; //no explicit fees for FAT transaction. It is a separate EC transaction cost signed for separately
+
+    //should loop through and look at input that is relative to this transaction for signing
+    //to confirm the amount to be signed for from this account.
+
+
+    int output_ct = 0;
+    for ( int i = 0; i < txContent.header.outputcount;++i )
+    {
+        addresses_type[output_ct] = PUBLIC_OFFSET_FCT_FAT;
+        addresses[output_ct++] = &txContent.outputs[i];
+        ux_step_count += 2;
+    }
+
+/*
+    for ( int i = 0; i < txContent.header.ecpurchasecount;++i )
+    {
+
+        addresses_type[output_ct] = PUBLIC_OFFSET_EC;
+        addresses[output_ct++] = &txContent.ecpurchase[i];
+        ux_step_count += 2;
+    }
+    */
+
+#if defined(TARGET_BLUE)
+    ux_step_count = 0;
+    ui_approval_transaction_blue_init();
+#elif defined(TARGET_NANOS)
+    UX_DISPLAY(ui_approval_nanos, ui_approval_prepro);
+#elif defined(TARGET_NANOX)
+    current_output = 0;
+    num_outputs = output_ct;
+    current_state = STATE_BORDER;
+    ux_flow_init(0, ux_confirm_full_flow, NULL);
+#endif // #if TARGET
+
+    *flags |= IO_ASYNCH_REPLY;
+
+    *tx = 0;
+}
+
 
 void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
                   uint16_t dataLength,

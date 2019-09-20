@@ -45,7 +45,10 @@ typedef struct txContentHeader_t {
 
 typedef struct txContentAddress_t {
     uint64_t value;
+    union {
     int8_t  *rcdhash;
+    int8_t  *fctaddr;
+    } addr;
 } txContentAddress_t;
 
 
@@ -72,4 +75,6 @@ typedef struct txContent_t {
 parserStatus_e parseTx(uint8_t *data, uint32_t length, 
                        txContent_t *context);
 
+
+void initContent(txContent_t *content);
 #endif

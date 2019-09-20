@@ -17,7 +17,7 @@
 ********************************************************************************/
 
 #include "ecParse.h"
-
+#define WANT_REDUNDANT_EC_ADDRESS 0
 
 parserStatus_e parseEcTxV0(uint8_t *data, uint32_t length, txEcContent_t *context, uint32_t *offset)
 {

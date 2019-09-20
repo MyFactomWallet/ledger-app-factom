@@ -192,7 +192,7 @@ parserStatus_e parseTxAddress(uint8_t *data, uint32_t length,
             break;
         }
 
-        context[i].rcdhash =  &data[*offset];
+        context[i].addr.rcdhash =  &data[*offset];
         *offset+=32;
 
     }
@@ -247,19 +247,19 @@ void initContent(txContent_t *content)
     for ( int i = 0; i < MAX_INPUT_ADDRESSES; ++i )
     {
         content->inputs[i].value = 0;
-        content->inputs[i].rcdhash = NULL;
+        content->inputs[i].addr.rcdhash = NULL;
     }
 
 
     for ( int i = 0; i < MAX_OUTPUT_ADDRESSES; ++i )
     {
         content->outputs[i].value = 0;
-        content->outputs[i].rcdhash = NULL;
+        content->outputs[i].addr.rcdhash = NULL;
     }
     for ( int i = 0; i < MAX_ECOUTPUT_ADDRESSES; ++i )
     {
         content->ecpurchase[i].value = 0;
-        content->ecpurchase[i].rcdhash = NULL;
+        content->ecpurchase[i].addr.rcdhash = NULL;
     }
 }
 
@@ -286,3 +286,6 @@ parserStatus_e parseTx(uint8_t *data, uint32_t length,
     */
     return result;
 }
+
+
+

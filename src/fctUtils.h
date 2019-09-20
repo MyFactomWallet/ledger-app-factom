@@ -73,8 +73,13 @@ typedef enum {
     PRIVATE_OFFSEST_EC = 3,
     PUBLIC_OFFSET_ID = 4,
     PRIVATE_OFFSET_ID = 5,
+    PUBLIC_OFFSET_FCT_FAT = 0x80,
     LAST_KEY_TYPE
 }  keyType_t;
+
+
+
+const uint32_t fct_address_length;
 
 extern const uint32_t MAX_TXN_SIZE;
 
