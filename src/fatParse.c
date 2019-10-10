@@ -314,14 +314,43 @@ int processFat0Tx(int r, jsmntok_t *t, uint8_t *d, uint32_t length, txContent_t 
 
 parserStatus_e parseFat0TxContent(uint8_t *d, uint32_t length, txContent_t *content)
 {
-    int i;
+    uint8_t *de = d;
+    uint8_t valid = 0;
+    int i = 0;
+    for(i = 0; i < length; ++i )
+    {
+        if ( d[i] == '{')
+        {
+            //input better be next...
+            for (int j = i+1; j < length; ++j )
+            {
+                if ( !isspace(&d[j]) )
+                {
+                    static char *input = "\"inputs\"";
+                    if ( strncmp(&d[j], input, MIN(strlen(input),length-j)) == 0 )
+                    {
+                        valid = 1;
+                    }
+                    break;
+                }
+            }
+            if ( valid )
+            {
+                break;
+            }
+        }
+    }
+
+    de = &d[i];
+
     int r;
     jsmn_parser p;
     jsmntok_t t[128]; /* We expect no more than 128 tokens */
     jsmntok_t *curtok = t;
 
+
     jsmn_init(&p);
-    r = jsmn_parse(&p, d, length, t,
+    r = jsmn_parse(&p, de, length, t,
                    sizeof(t) / sizeof(t[0]));
     if (r < 0)
     {
@@ -336,7 +365,7 @@ parserStatus_e parseFat0TxContent(uint8_t *d, uint32_t length, txContent_t *cont
         return 1;
     }
 
-    processFat0Tx(r,t, d, length,content);
+    processFat0Tx(r,t, de, length,content);
 }
 
 parserStatus_e parseFatTxInternal(uint8_t *d, uint32_t length,

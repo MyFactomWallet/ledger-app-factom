@@ -151,7 +151,13 @@ int main ( int argc, char argv[] )
     static const char *JSON_STRING =
         "{\"inputs\":{\"FA22de5NSG2FA2HmMaD4h8qSAZAJyztmmnwgLPghCQKoSekwYYct\":150},\"outputs\":{\"FA3nr5r54AKBZ9SLABS3JyRoGcWMVMTkePW9MECKM8shMg2pMagn\":150}}";
 
-    parseFatTx(JSON_STRING, strlen(JSON_STRING),&content);
+    static const char *fattx =
+       "3031353639353334303736888888d027c59579fc47a6fc6c4a5c0409c7c39bc38a86cb5fc00699784937627b22696e70757473223a7b22464132326465354e534732464132486d4d61443468387153415a414a797a746d6d6e77674c50676843514b6f53656b7759596374223a3135307d2c226f757470757473223a7b224641336e7235723534414b425a39534c414253334a79526f4763574d564d546b655057394d45434b4d3873684d6732704d61676e223a3135307d7d";
+
+    bzero(data,sizeof(data));
+    hextobin(data,fattx,strlen(fattx)/2);
+
+    parseFatTx(data, strlen(fattx)/2,&content);
 
 
     return 0;
