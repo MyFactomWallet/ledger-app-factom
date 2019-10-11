@@ -79,9 +79,11 @@ typedef enum {
 
 
 
-const uint32_t fct_address_length;
+extern const uint32_t fct_address_length;
 
 extern const uint32_t MAX_TXN_SIZE;
+#define FCT_ADDRESS_LENGTH 52
+
 
 void sha256d(uint8_t *data, uint32_t len, uint8_t *out, uint32_t outlen);
 

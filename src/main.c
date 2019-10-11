@@ -3435,8 +3435,8 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
     int ret = parseFatTx(tmpCtx.transactionContext.rawTx,
-                       tmpCtx.transactionContext.rawTxLength,
-                       &txContent);
+                         tmpCtx.transactionContext.rawTxLength,
+                        &txContent);
 
     if ( ret != USTREAM_FINISHED)
     {
