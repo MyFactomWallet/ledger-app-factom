@@ -73,6 +73,7 @@ uint32_t set_result_get_publicKey(void);
 #define INS_SIGN_MESSAGE_HASH 0x14
 #define INS_SIGN_RAW_MESSAGE_WITH_ID 0x16
 #define INS_STORE_CHAIN_ID 0x18
+#define INS_SIGN_FAT 0x20
 
 #define COIN_TYPE_ID  281
 #define COIN_TYPE_EC 132
@@ -2903,7 +2904,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         tmpCtx.transactionContext.headervalid = HEADER_TYPE_TXSIGN;
     break;
 
-    case P1_MORE: //LEDGER-REVIEW: this case should check if a call with P1_FIRST has been executed previously, and throw if not
+    case P1_MORE: 
 
         //DB: Corrected check
         if ( tmpCtx.transactionContext.headervalid != HEADER_TYPE_TXSIGN )
@@ -3359,8 +3360,10 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 {
     UNUSED(tx);
 
+    uint8_t p1last = p1&0x0F;
+    uint8_t p1state = p1&0xF0;
 
-    switch (p1)
+    switch (p1state)
     {
     case P1_FIRST:
     {
@@ -3392,18 +3395,25 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         //workBuffer++;
         //dataLength--;
 
-        //for now only support factom_id type siging.  throw exception otherwise.
-
-        //if ( tmpCtx.messageSigningContext.hashtype == HASH_TYPE_SHA512 )
+        cx_sha512_init(&tmpCtx.transactionContext.hashCtx.sha512.context);
+        
+        //hash the first part of the data.
+        cx_hash(&tmpCtx.transactionContext.hashCtx.sha512.context, (p1last==1)?CX_LAST:0,
+                workBuffer, dataLength,
+                tmpCtx.transactionContext.hashCtx.sha512.hash,
+                sizeof(tmpCtx.transactionContext.hashCtx.sha512.hash));
+  
+        tmpCtx.transactionContext.rawTxLength = dataLength;
+        
+        if ( tmpCtx.transactionContext.rawTxLength > MAX_RAW_TX )
         {
-            cx_sha512_init(&tmpCtx.transactionContext.hashCtx.sha512.context);
-            //hash the first part of the data.
-            cx_hash(&tmpCtx.transactionContext.hashCtx.sha512.context, (p2&0x02)?CX_LAST:0,
-                    workBuffer, dataLength,
-                    tmpCtx.transactionContext.hashCtx.sha512.hash,
-                    sizeof(tmpCtx.transactionContext.hashCtx.sha512.hash));
-        }
+           os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
+           //Transaction too large for device
+           THROW(0x6A80);
+        } 
 
+        os_memmove(tmpCtx.transactionContext.rawTx, workBuffer, dataLength);
+        
         tmpCtx.transactionContext.headervalid = HEADER_TYPE_FATSIGN;
         break;
     }
@@ -3415,44 +3425,73 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         }
 
 
-        //if ( tmpCtx.messageSigningContext.hashtype == HASH_TYPE_SHA512)
-        {
             //hash the first part of the data.
-            cx_hash(&tmpCtx.messageSigningContext.hashCtx.sha512.context, (p2&0x02)?CX_LAST:0,
+            cx_hash(&tmpCtx.transactionContext.hashCtx.sha512.context, (p1last==1)?CX_LAST:0,
                 workBuffer, dataLength,
-                tmpCtx.messageSigningContext.hashCtx.sha512.hash,
-                sizeof(tmpCtx.messageSigningContext.hashCtx.sha512.hash));
-        }
+                tmpCtx.transactionContext.hashCtx.sha512.hash,
+                sizeof(tmpCtx.transactionContext.hashCtx.sha512.hash));
+            
+        
+        //buffer length check
+        if ( tmpCtx.transactionContext.rawTxLength + dataLength  > MAX_RAW_TX )
+        {
+           os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
+           //Transaction too large for device
+           THROW(0x6A80);
+        } 
 
+        os_memmove(&tmpCtx.transactionContext.rawTx[tmpCtx.transactionContext.rawTxLength],
+                   workBuffer, dataLength);
+        tmpCtx.transactionContext.rawTxLength += dataLength;
+
+        
         break;
     default:
         THROW(0x6B00);
     };
 
-    if ( (p2&0x02) == 0 )
+    if ( p1last == 0 )
     {
         THROW(0x9000);
     }
 
-    int ret = parseFatTx(tmpCtx.transactionContext.rawTx,
-                         tmpCtx.transactionContext.rawTxLength,
-                        &txContent);
+    
+    int ret = 0;
+    switch (p2) {
+        case 0 :
+            ret = parseFat0Tx(tmpCtx.transactionContext.rawTx,
+                             tmpCtx.transactionContext.rawTxLength,
+                            &txContent);
+            break;
+        case 1:
+            ret = parseFat1Tx(tmpCtx.transactionContext.rawTx,
+                             tmpCtx.transactionContext.rawTxLength,
+                            &txContent);
+            break;
+        default:
+            THROW(0x6B01);
+    };
+            
 
-    if ( ret != USTREAM_FINISHED)
+    if ( ret != 0)
     {
-        THROW(ret);
+        //THROW(0x6B12);
+        THROW(0x6000|ret);
     }
 
 
     if ( txContent.header.inputcount < 1 )
     {
-        THROW(USTREAM_FAULT_INPUT_COUNT);
+        THROW(0x6B02);
+        //THROW(USTREAM_FAULT_INPUT_COUNT);
     }
 
 
     if ( txContent.header.outputcount + txContent.header.ecpurchasecount > MAX_OUTPUTS )
     {
-        THROW(USTREAM_FAULT_TOO_MANY_OUTPUTS);
+        
+        THROW(0x6B03);
+        //THROW(USTREAM_FAULT_TOO_MANY_OUTPUTS);
     }
 
     // "confirm", amount, address, ..., amount[n], address[n], fee
@@ -3712,8 +3751,15 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
 #endif
-
+                
 #endif // TARGET_NANOX
+                
+            case INS_SIGN_FAT:
+                handleSignFatTx(G_io_apdu_buffer[OFFSET_P1],
+                           G_io_apdu_buffer[OFFSET_P2],
+                           G_io_apdu_buffer + OFFSET_CDATA,
+                           G_io_apdu_buffer[OFFSET_LC], flags, tx);
+                break;
             case INS_GET_APP_CONFIGURATION:
                 handleGetAppConfiguration(
                     G_io_apdu_buffer[OFFSET_P1], G_io_apdu_buffer[OFFSET_P2],

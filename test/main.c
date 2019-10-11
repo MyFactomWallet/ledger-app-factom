@@ -66,6 +66,8 @@ void test_varint_decode()
 
 }
 
+
+
 int main ( int argc, char argv[] )
 {
     test_varint_decode();
@@ -157,7 +159,10 @@ int main ( int argc, char argv[] )
     bzero(data,sizeof(data));
     hextobin(data,fattx,strlen(fattx)/2);
 
-    parseFatTx(data, strlen(fattx)/2,&content);
+
+    int iii = toString("150", 3);
+
+    parseFat0Tx(data, strlen(fattx)/2,&content);
 
 
     return 0;
