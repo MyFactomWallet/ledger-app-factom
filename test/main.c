@@ -93,11 +93,11 @@ int main ( int argc, char argv[] )
     char out[512];
     getFctAddressStringFromRCDHash(content.inputs[0].addr.rcdhash,out,PUBLIC_OFFSET_FCT);
     fprintf(stderr, "%s\n", out);
-    fprintf(stderr, "%ld\n", content.inputs[0].value);
+    fprintf(stderr, "%ld\n", content.inputs[0].amt.value);
 
     getFctAddressStringFromRCDHash(content.outputs[0].addr.rcdhash,out,PUBLIC_OFFSET_FCT);
     fprintf(stderr, "%s\n", out);
-    fprintf(stderr, "%ld\n", content.outputs[0].value);
+    fprintf(stderr, "%ld\n", content.outputs[0].amt.value);
 
 
     char maxFee[256];
@@ -108,7 +108,7 @@ int main ( int argc, char argv[] )
     char fullAmount[256];
     for ( int i = 0; i < content.header.outputcount;++i )
     {
-        fct_print_amount(content.outputs[i].value, fullAmount, sizeof(fullAmount));
+        fct_print_amount(content.outputs[i].amt.value, fullAmount, sizeof(fullAmount));
 
         fprintf(stderr, "Amount %s\n", fullAmount);
     }
@@ -153,17 +153,25 @@ int main ( int argc, char argv[] )
     static const char *JSON_STRING =
         "{\"inputs\":{\"FA22de5NSG2FA2HmMaD4h8qSAZAJyztmmnwgLPghCQKoSekwYYct\":150},\"outputs\":{\"FA3nr5r54AKBZ9SLABS3JyRoGcWMVMTkePW9MECKM8shMg2pMagn\":150}}";
 
-    static const char *fattx =
+    static const char *fat0tx =
        "3031353639353334303736888888d027c59579fc47a6fc6c4a5c0409c7c39bc38a86cb5fc00699784937627b22696e70757473223a7b22464132326465354e534732464132486d4d61443468387153415a414a797a746d6d6e77674c50676843514b6f53656b7759596374223a3135307d2c226f757470757473223a7b224641336e7235723534414b425a39534c414253334a79526f4763574d564d546b655057394d45434b4d3873684d6732704d61676e223a3135307d7d";
 
     bzero(data,sizeof(data));
-    hextobin(data,fattx,strlen(fattx)/2);
+    hextobin(data,fat0tx,strlen(fat0tx)/2);
 
 
     int iii = toString("150", 3);
 
-    parseFat0Tx(data, strlen(fattx)/2,&content);
+    parseFat0Tx(data, strlen(fat0tx)/2,&content);
 
+    static const char *fat1tx =
+    "3031353730383438393139888888d027c59579fc47a6fc6c4a5c0409c7c39bc38a86cb5fc00699784937627b22696e70757473223a7b2246413251776d7a703478655852346a575972516e625053586935774c645648793870336b7341565376796a4c4558376a4533704e223a5b7b226d696e223a302c226d6178223a337d2c3135305d7d2c226f757470757473223a7b2246413361454370773367455a37434d5176524e7845744b42474b416f73333932326f71594c634851394e7158487564433659424d223a5b7b226d696e223a302c226d6178223a337d2c3135305d7d7d";
+//"{"inputs":{"FA2Qwmzp4xeXR4jWYrQnbPSXi5wLdVHy8p3ksAVSvyjLEX7jE3pN":[{"min":0,"max":3},150]},"outputs""... (unknown length)
+
+    bzero(data,sizeof(data));
+    hextobin(data,fat1tx,strlen(fat1tx)/2);
+
+    parseFat1Tx(data, strlen(fat1tx)/2,&content);
 
     return 0;
 }

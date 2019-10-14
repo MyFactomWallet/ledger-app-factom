@@ -109,10 +109,12 @@ int processFat0Outputs(jsmntok_t **tt, jsmntok_t *tend, uint8_t *d,uint32_t leng
         //store off the pointer to the address
         content->outputs[content->header.outputcount].addr.fctaddr = d + (t-1)->start;
 
-        int32_t val = toString(d+t->start, t->end - t->start);
+        //int32_t val = toString(d+t->start, t->end - t->start);
 
         //convert to fatoshis
-        content->outputs[content->header.outputcount].value = val * 100000000ul;
+        content->outputs[content->header.outputcount].amt.entry = d+t->start;
+        content->outputs[content->header.outputcount].amt.size = t->end - t->start;
+                //value = val * 100000000ul;
 
 //        fprintf(stderr,"- Value: %.*s %ld \n", 52,
 //               content->outputs[content->header.outputcount].addr.fctaddr,content->outputs[content->header.outputcount].value / 100000000 );
@@ -203,10 +205,11 @@ int processFat0Inputs(jsmntok_t **tt, jsmntok_t *tend, uint8_t *d,uint32_t lengt
     
 
     
-        int32_t val = toString(d+t->start, t->end - t->start);
+        //int32_t val = toString(d+t->start, t->end - t->start);
 
         //convert to fatoshis
-        content->inputs[content->header.inputcount].value = val * 100000000ul;
+        content->inputs[content->header.inputcount].amt.entry = d+t->start;
+        content->inputs[content->header.inputcount].amt.size = t->end - t->start;//val * 100000000ul;
 
 
 //        fprintf(stderr,"- Value: %.*s %ld \n", 52,
@@ -393,7 +396,7 @@ int parseFat0TxContent(uint8_t *d, uint32_t length, txContent_t *content)
             //input better be next...
             for (uint32_t j = i+1; j < length; ++j )
             {
-                if ( !isSpace(&d[j]) )
+                if ( !isSpace(d[j]) )
                 {
                     static char *input = "\"inputs\"";
                     if ( strlen(input) > length-j )
@@ -424,7 +427,7 @@ int parseFat0TxContent(uint8_t *d, uint32_t length, txContent_t *content)
 
     int r;
     jsmn_parser p;
-    static jsmntok_t t[16]; /* We expect no more than 128 tokens */
+    static jsmntok_t t[32]; /* We expect no more than 128 tokens */
     
     jsmntok_t *curtok = t;
 
@@ -450,6 +453,281 @@ int parseFat0TxContent(uint8_t *d, uint32_t length, txContent_t *content)
     }
     
     return processFat0Tx(r,t, de, length,content);
+}
+
+int processFat1Outputs(jsmntok_t **tt, jsmntok_t *tend, uint8_t *d,uint32_t length,txContent_t *content)
+{
+    jsmntok_t *t = *tt;
+
+    if ( t == tend )
+    {
+        return FAT_INSUFFICIENT_IOM;
+    }
+    if ( t->type != JSMN_OBJECT )
+    {
+        return FAT_ERROR_OUTPUT_OBJECT_EXPECTED;
+    }
+
+    ++t;
+
+    content->header.outputcount = 0;
+
+    while(jsonpartialeq(d, t, "FA1" ) == 0 ||
+          jsonpartialeq(d, t, "FA2" ) == 0 ||
+          jsonpartialeq(d, t, "FA3" ) == 0 )
+    {
+        char buff[128] = {0};
+
+
+        if ( content->header.outputcount > MAX_OUTPUT_ADDRESSES)
+        {
+            return FAT_ERROR_OUTPUT_ADDRESS_EXPECTED;
+        }
+
+        if ( t->end - t->start != fct_address_length )
+        {
+            return FAT_ERROR_INVALID_FCT_ADDRESS;
+        }
+
+        ++t;
+
+        if ( t->type != JSMN_ARRAY )
+        {
+            return FAT_ERROR_OUTPUT_AMOUNT_EXPECTED;
+        }
+
+
+        //store off the pointer to the address
+        content->outputs[content->header.outputcount].addr.fctaddr = d + (t-1)->start;
+
+        //int32_t val = toString(d+t->start, t->end - t->start);
+
+        //convert to fatoshis
+        content->outputs[content->header.outputcount].amt.entry = d+t->start;
+        content->outputs[content->header.outputcount].amt.size = t->end - t->start;// val * 100000000ul;
+
+//        fprintf(stderr,"- Value: %.*s %ld \n", 52,
+//               content->outputs[content->header.outputcount].addr.fctaddr,content->outputs[content->header.outputcount].value / 100000000 );
+
+        int jump = t->end;
+        while ( t->start < jump && t->type != JSMN_UNDEFINED  )
+        {
+            ++t;
+        }
+
+        ++content->header.outputcount;
+
+    }
+    *tt=t;
+    return 0;
+}
+
+int processFat1Inputs(jsmntok_t **tt, jsmntok_t *tend, uint8_t *d,uint32_t length, txContent_t *content)
+{
+    jsmntok_t *t = *tt;
+    if ( t == tend )
+    {
+        return FAT_INSUFFICIENT_IOM;
+    }
+    if ( t->type != JSMN_OBJECT )
+    {
+        return FAT_ERROR_INPUT_OBJECT_EXPECTED;
+    }
+
+    ++t;
+
+    if ( t->type != JSMN_STRING )
+    {
+        return FAT_ERROR_INPUT_ADDRESS_EXPECTED;
+    }
+
+
+    content->header.inputcount = 0;
+
+    while(jsonpartialeq(d, t, "FA1" ) == 0 ||
+          jsonpartialeq(d, t, "FA2" ) == 0 ||
+          jsonpartialeq(d, t, "FA3" ) == 0 )
+    {
+        if ( content->header.inputcount > MAX_INPUT_ADDRESSES)
+        {
+            return FAT_ERROR_INPUT_TOO_MANY_ADDRESS;
+        }
+
+        if ( t->end - t->start != fct_address_length )
+        {
+            return FAT_ERROR_INVALID_FCT_ADDRESS;
+        }
+
+        //store off the pointer to the address
+        content->inputs[content->header.inputcount].addr.fctaddr = d + t->start;
+        ++t;
+
+        //expect an array
+        if ( t->type != JSMN_ARRAY )
+        {
+            return FAT_ERROR_INPUT_AMOUNT_EXPECTED;
+        }
+
+
+
+
+
+        int32_t val = toString(d+t->start, t->end - t->start);
+
+        //convert to fatoshis
+        content->inputs[content->header.inputcount].amt.entry = d+t->start;
+        content->inputs[content->header.inputcount].amt.entry = t->end - t->start;//val * 100000000ul;
+
+
+//        fprintf(stderr,"- Value: %.*s %ld \n", 52,
+//               content->inputs[content->header.inputcount].addr.fctaddr,content->inputs[content->header.inputcount].value / 100000000 );
+
+
+        int jump = t->end;
+        while ( t->start < jump && t->type != JSMN_UNDEFINED )
+        {
+            ++t;
+        }
+
+        ++content->header.inputcount;
+    }
+
+    *tt = t;
+    return 0;
+}
+
+
+int processFat1Tx(int r, jsmntok_t *t, uint8_t *d, uint32_t length, txContent_t *content)
+{
+    //minimum viability for a fat transaction is 10 tokens
+    if (r < 1 || t->type != JSMN_OBJECT) {
+      //printf("Object expected\n");
+      return FAT_INSUFFICIENT_IOM;
+    }
+
+
+    jsmntok_t *tend = &t[r-1];
+    ++t;
+
+
+    if ( t == tend )
+    {
+        return FAT_INSUFFICIENT_IOM;
+    }
+
+    int ret = 0;
+    for ( ; t < tend;  )
+    {
+        if ( t->type != JSMN_STRING )
+        {
+            return tend - t; //FAT_ERROR_INPUT_EXPECTED;
+        }
+
+        if (jsoneq(d, t, "inputs") == 0)
+        {
+            ++t;
+
+            ret = processFat1Inputs(&t, tend, d, length,content);
+            if ( ret )
+            {
+                return ret;
+            }
+        }
+        else if (jsoneq(d, t, "outputs") == 0)
+        {
+            ++t;
+            ret = processFat1Outputs(&t, tend, d, length, content);
+            if ( ret )
+            {
+                return ret;
+            }
+        }
+        else //metadata or something else, don't care
+        {
+            ++t;
+            continue;
+        }
+    }
+    return 0;
+}
+
+int parseFat1TxContent(uint8_t *d, uint32_t length, txContent_t *content)
+{
+    int8_t *de = d;
+    uint8_t valid = 0;
+    uint32_t i = 0;
+
+    //static const char *JSON_STRING =
+    //    "{\"inputs\":{\"FA22de5NSG2FA2HmMaD4h8qSAZAJyztmmnwgLPghCQKoSekwYYct\":150},\"outputs\":{\"FA3nr5r54AKBZ9SLABS3JyRoGcWMVMTkePW9MECKM8shMg2pMagn\":150}}";
+
+    //de = JSON_STRING;
+    //length = strlen(JSON_STRING);
+//    return 0x6000 | i;
+
+    for(i = 0; i < length; ++i )
+    {
+        if ( d[i] == '{')
+        {
+            //input better be next...
+            for (uint32_t j = i+1; j < length; ++j )
+            {
+                if ( !isSpace(d[j]) )
+                {
+                    static char *input = "\"inputs\"";
+                    if ( strlen(input) > length-j )
+                    {
+                        continue;
+                    }
+
+                    if ( strncmp(&d[j], input, strlen(input)) == 0 )
+                    {
+                        valid = 1;
+                    }
+                    break;
+                }
+            }
+            if ( valid )
+            {
+                break;
+            }
+        }
+    }
+
+    if (valid == 0 )
+    {
+        return FAT_ERROR_INVALID_JSON;
+    }
+
+    de = &d[i];
+
+    int r;
+    jsmn_parser p;
+    static jsmntok_t t[32]; /* We expect no more than 128 tokens */
+
+    jsmntok_t *curtok = t;
+
+
+    jsmn_init(&p);
+
+
+    r = jsmn_parse(&p, de, length, t,
+                   sizeof(t) / sizeof(t[0]));
+
+
+    if (r < 0)
+    {
+        //printf("Failed to parse JSON: %d\n", r);
+        return FAT_ERROR_INVALID_JSON;
+    }
+
+    /* Assume the top-level element is an object */
+    if (r < 1 || t[0].type != JSMN_OBJECT)
+    {
+        //printf("Object expected\n");
+        return FAT_ERROR_JSON_OBJECT_NOT_FOUND;
+    }
+
+    return processFat1Tx(r,t, de, length,content);
 }
 
 int parseFatTxInternal(uint8_t *d, uint32_t length,
@@ -520,7 +798,7 @@ int parseFat1Tx(uint8_t *d, uint32_t length,
                        txContent_t *content) {
     int result = 0;
     initContent(content);    
-    result = parseFat0TxContent(d,length, content);
+    result = parseFat1TxContent(d,length, content);
     return result;
             /*
     BEGIN_TRY {

@@ -44,7 +44,11 @@ typedef struct txContentHeader_t {
 } txContentHeader_t;
 
 typedef struct txContentAddress_t {
-    uint64_t value;
+    union {
+        uint64_t value;
+        uint32_t size;
+        int8_t *entry;
+    } amt;
     union {
     int8_t  *rcdhash;
     int8_t  *fctaddr;

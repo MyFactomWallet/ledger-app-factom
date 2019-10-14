@@ -175,16 +175,16 @@ parserStatus_e parseTxAddress(uint8_t *data, uint32_t length,
     {
         int8_t bytes = 0;
         int32_t diff = length-*offset;
-        context[i].value = varint_decode(&data[*offset],diff>8?8:diff, &bytes);
+        context[i].amt.value = varint_decode(&data[*offset],diff>8?8:diff, &bytes);
         *offset += bytes;
 
-        if ( context[i].value == 0 )
+        if ( context[i].amt.value == 0 )
         {
             result = USTREAM_FAULT_VALUE;
             break;//out of bounds -- bad varint
         }
 
-        *value += context[i].value;
+        *value += context[i].amt.value;
 
         if ( *offset+32 > length )
         {
@@ -246,19 +246,19 @@ void initContent(txContent_t *content)
 
     for ( int i = 0; i < MAX_INPUT_ADDRESSES; ++i )
     {
-        content->inputs[i].value = 0;
+        content->inputs[i].amt.value = 0;
         content->inputs[i].addr.rcdhash = NULL;
     }
 
 
     for ( int i = 0; i < MAX_OUTPUT_ADDRESSES; ++i )
     {
-        content->outputs[i].value = 0;
+        content->outputs[i].amt.value = 0;
         content->outputs[i].addr.rcdhash = NULL;
     }
     for ( int i = 0; i < MAX_ECOUTPUT_ADDRESSES; ++i )
     {
-        content->ecpurchase[i].value = 0;
+        content->ecpurchase[i].amt.value = 0;
         content->ecpurchase[i].addr.rcdhash = NULL;
     }
 }
