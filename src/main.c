@@ -158,6 +158,14 @@ typedef struct messageSigningContext_t {
     hashCtx_t hashCtx;
 } messageSigningContext_t;
 
+
+typedef struct internalStorage_t {
+    uint8_t dataAllowed;
+    uint8_t fidoTransport;
+    uint8_t initialized;
+    uint8_t chainid[32];
+} internalStorage_t;
+
 //typedef struct rawMessageSigningContext_t {
 //    uint8_t headervalid;
 //    uint8_t pathLength;
@@ -174,21 +182,14 @@ union {
 //    rawMessageSigningContext_t rawMessageSigningContext;
 } tmpCtx;
 
-txContent_t txContent;
 
-uint8_t batchModeEnabled = 0;
-
-union {
-    txContent_t txContent;
-    cx_sha256_t sha2;
-} tmpContent;
-
-
+volatile txContent_t txContent;
+volatile uint8_t batchModeEnabled = 0;
 volatile uint8_t dataAllowed;
-volatile uint8_t fidoTransport;
 volatile char fullAddress[FCT_ADDRESS_LENGTH+1];
 volatile char addressSummary[32];
 volatile char fullAmount[32];
+
 volatile char maxFee[16];
 volatile bool dataPresent;
 volatile bool skipWarning;
@@ -209,12 +210,6 @@ ux_state_t ux;
 unsigned int ux_step;
 unsigned int ux_step_count;
 
-typedef struct internalStorage_t {
-    uint8_t dataAllowed;
-    uint8_t fidoTransport;
-    uint8_t initialized;
-    uint8_t chainid[32];
-} internalStorage_t;
 
 WIDE internalStorage_t const N_storage_real;
 #define N_storage (*(WIDE internalStorage_t *)PIC(&N_storage_real))
@@ -1533,7 +1528,16 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     display_amount_offset:
                     if ( addresses[offset] )
                     {
-                        fct_print_amount(addresses[offset]->value,(int8_t*)fullAmount,sizeof(fullAmount));
+                        if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT)
+                        {
+                            //fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
+                            int size = addresses[offset]->amt.fat.size<sizeof(fullAmount)?addresses[offset]->amt.fat.size:(sizeof(fullAmount)-1);
+                            strncpy((int8_t*)fullAmount, addresses[offset]->amt.fat.entry, size);
+                        }
+                        else
+                        {
+                            fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
+                        }
 
                         goto display_detail;
                     }
@@ -1714,13 +1718,13 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     if ( strlen(maxFee) != 0 )
                     {
                         display = 20;
-                        goto display_detail;
                     }
+                    goto display_detail;
                 }
 
                 UX_CALLBACK_SET_INTERVAL(MAX(
-                    2000,
-                    1000 + bagl_label_roundtrip_duration_ms(&tmp_element, 7)));
+                    1000,
+                    500 + bagl_label_roundtrip_duration_ms(&tmp_element, 7)));
                 return &tmp_element;
             }
         }
@@ -2373,10 +2377,18 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
     os_memset(privateKeyData, 0, sizeof(privateKeyData));
 
+    uint8_t *rawTx = tmpCtx.transactionContext.rawTx;
+    uint32_t rawTxLength = tmpCtx.transactionContext.rawTxLength;
+
+    if ( addresses_type[0] == PUBLIC_OFFSET_FCT_FAT )
+    {
+        rawTx = tmpCtx.transactionContext.hashCtx.sha512.hash;
+        rawTxLength = sizeof(tmpCtx.transactionContext.hashCtx.sha512.hash);
+    }
     //store signature in 35..97
     signatureLength = cx_eddsa_sign(&privateKey, CX_LAST, CX_SHA512,
-                            tmpCtx.transactionContext.rawTx,
-                            tmpCtx.transactionContext.rawTxLength,
+                            rawTx,
+                            rawTxLength,
 			    NULL, 0,
                             &G_io_apdu_buffer[35], sizeof(G_io_apdu_buffer)-35, NULL);
 
@@ -2395,6 +2407,15 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     getCompressedPublicKeyWithRCD(&tmpCtx.publicKeyContext.publicKey,
                                G_io_apdu_buffer, 33);
     signatureLength+=33;
+
+
+    if ( addresses_type[0] == PUBLIC_OFFSET_FCT_FAT )
+    {
+        //we're siging the sha512 hash since this is a FAT transaction, so return it.
+        os_memmove(&G_io_apdu_buffer[signatureLength], rawTx, rawTxLength);
+        signatureLength += rawTxLength;
+    }
+
 
     //append success 
     G_io_apdu_buffer[signatureLength++] = 0x90;
@@ -2998,7 +3019,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     {
 
         addresses_type[output_ct] = PUBLIC_OFFSET_EC;
-        addresses[output_ct++] = &txContent.ecpurchase[i];
+        addresses[output_ct++] = &txContent.t.ecpurchase[i];
         ux_step_count += 2;
     }
 
@@ -3368,6 +3389,7 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     case P1_FIRST:
     {
         os_memset(&tmpCtx.transactionContext,0,sizeof(tmpCtx.transactionContext));
+        os_memset(&txContent,0,sizeof(txContent));
 
 
         tmpCtx.transactionContext.pathLength = workBuffer[0];
@@ -3457,41 +3479,29 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 
     
     int ret = 0;
-    switch (p2) {
-        case 0 :
-            ret = parseFat0Tx(tmpCtx.transactionContext.rawTx,
-                             tmpCtx.transactionContext.rawTxLength,
-                            &txContent);
-            break;
-        case 1:
-            ret = parseFat1Tx(tmpCtx.transactionContext.rawTx,
-                             tmpCtx.transactionContext.rawTxLength,
-                            &txContent);
-            break;
-        default:
-            THROW(0x6B01);
-    };
-            
+
+    ret = parseFatTx(p2,tmpCtx.transactionContext.rawTx,
+                     tmpCtx.transactionContext.rawTxLength,
+                    &txContent);
+
 
     if ( ret != 0)
     {
         //THROW(0x6B12);
-        THROW(0x6000|ret);
+        THROW(0x6E00|(0xFF&ret));
     }
 
 
     if ( txContent.header.inputcount < 1 )
     {
         THROW(0x6B02);
-        //THROW(USTREAM_FAULT_INPUT_COUNT);
     }
 
 
-    if ( txContent.header.outputcount + txContent.header.ecpurchasecount > MAX_OUTPUTS )
+    if ( txContent.header.outputcount > MAX_OUTPUTS )
     {
         
         THROW(0x6B03);
-        //THROW(USTREAM_FAULT_TOO_MANY_OUTPUTS);
     }
 
     // "confirm", amount, address, ..., amount[n], address[n], fee
@@ -3503,7 +3513,7 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
 
-    ux_step_count = 2;
+    ux_step_count = 1;
     ux_step = 0;
 
     maxFee[0] = 0; //no explicit fees for FAT transaction. It is a separate EC transaction cost signed for separately

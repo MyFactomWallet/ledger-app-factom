@@ -51,7 +51,7 @@ typedef enum {
   JSMN_PRIMITIVE = 4
 } jsmntype_t;
 
-const char *jsmn_types[] = {"JSMN_UNDEFINED", "JSMN_OBJECT", "JSMN_ARRAY", "JSMN_STRING", "JSMN_PRIMITIVE"};
+//const char *jsmn_types[] = {"JSMN_UNDEFINED", "JSMN_OBJECT", "JSMN_ARRAY", "JSMN_STRING", "JSMN_PRIMITIVE"};
 
 enum jsmnerr {
   /* Not enough tokens were provided */
@@ -69,10 +69,17 @@ enum jsmnerr {
  * end		end position in JSON data string
  */
 typedef struct {
+
   jsmntype_t type;
   int start;
   int end;
   int size;
+
+//  unsigned short type;
+//  unsigned short start;
+//  unsigned short end;
+//  unsigned short size;
+
 #ifdef JSMN_PARENT_LINKS
   int parent;
 #endif
