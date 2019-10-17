@@ -186,6 +186,7 @@ union {
 volatile txContent_t txContent;
 volatile uint8_t batchModeEnabled = 0;
 volatile uint8_t dataAllowed;
+volatile char confirm_string[16];
 volatile char fullAddress[FCT_ADDRESS_LENGTH+1];
 volatile char addressSummary[32];
 volatile char fullAmount[32];
@@ -1468,7 +1469,7 @@ const bagl_element_t ui_approval_nanos[] = {
     // 0, NULL, NULL, NULL },
     {{BAGL_LABELINE, 0x01, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Confirm",
+     confirm_string,
      0,
      0,
      0,
@@ -1843,6 +1844,7 @@ const bagl_element_t ui_approval_nanos_id[] = {
      NULL,
      NULL},
 };
+
 
 
 const bagl_element_t ui_approval_nanos_store_chainid[] = {
@@ -3023,6 +3025,8 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         ux_step_count += 2;
     }
 
+    
+    strcpy(confirm_string,"Confirm");
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
@@ -3539,6 +3543,8 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         ux_step_count += 2;
     }
     */
+
+    strcpy(confirm_string,"Confirm FAT");
 
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
