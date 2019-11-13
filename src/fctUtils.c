@@ -356,10 +356,11 @@ unsigned short fct_print_amount(uint64_t amount, int8_t *out,
 uint64_t varint_decode(uint8_t *data, uint32_t maxlen, uint8_t *bytes)
 {
 
-    uint64_t ret = 0;
+    uint64_t ret = 0xFFFFFFFF;
     if ( !data || !bytes ) return ret;
 
     *bytes = 0;
+    ret = 0;
     do
     {
         ret = ret << 7;

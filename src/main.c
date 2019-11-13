@@ -1419,6 +1419,7 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
 
 #if defined(TARGET_NANOS)
 const char *const ui_approval_details[][2] = {
+    {"Fees", (const char*)maxFee},
     {"Output 1 Amount", (const char*)fullAmount}, {"Output 1 Address", (const char*)addressSummary},
     {"Output 2 Amount", (const char*)fullAmount}, {"Output 2 Address", (const char*)addressSummary},
     {"Output 3 Amount", (const char*)fullAmount}, {"Output 3 Address", (const char*)addressSummary},
@@ -1429,7 +1430,6 @@ const char *const ui_approval_details[][2] = {
     {"Output 8 Amount", (const char*)fullAmount}, {"Output 8 Address", (const char*)addressSummary},
     {"Output 9 Amount", (const char*)fullAmount}, {"Output 9 Address", (const char*)addressSummary},
     {"Output 10 Amount", (const char*)fullAmount}, {"Output 10 Address", (const char*)addressSummary},
-    {"Fees", (const char*)maxFee},
 };
 
 const bagl_element_t ui_approval_nanos[] = {
@@ -1524,7 +1524,20 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                 os_memmove(&tmp_element, element, sizeof(bagl_element_t));
                 display = ux_step - 1;
                 switch (display) {
-                case 0: // amount
+                // no break is intentional
+                case 0: // fees
+                    if ( strlen(maxFee) != 0 )
+                    {
+                        display = 0;
+                        goto display_detail;
+                    }
+		    else
+		    {
+                        display = 1;
+			++ux_step;
+		    }
+
+                case 1: // amount
                     offset = 0;
                     display_amount_offset:
                     if ( addresses[offset] )
@@ -1537,12 +1550,20 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                         }
                         else
                         {
-                            fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
+			    if ( addresses[offset]->amt.value == 0 )
+			    {
+                                strcpy(fullAmount, "FCT 0");
+                                //goto display_address_offset;
+                            }
+			    else
+			    {
+                                fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
+			    }
                         }
 
                         goto display_detail;
                     }
-                case 1: // address
+                case 2: // address
                     offset = 0;
                     display_address_offset:
                     if ( addresses[offset] )
@@ -1569,93 +1590,85 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                         ui_approval_details[display]
                                            [(element->component.userid) >> 4];
                     break;
-                case 2:
-                    offset = 1;
-                    if ( addresses[offset] )
-                    {
-                        display = 2;
-                        goto display_amount_offset;
-                    }
-                // no break is intentional
                 case 3:
                     offset = 1;
                     if ( addresses[offset] )
                     {
                         display = 3;
-                        goto display_address_offset;
-                    }
-                case 4:
-                    offset = 2;
-                    if ( addresses[offset] )
-                    {
-                        display = 4;
                         goto display_amount_offset;
                     }
                 // no break is intentional
+                case 4:
+                    offset = 1;
+                    if ( addresses[offset] )
+                    {
+                        display = 4;
+                        goto display_address_offset;
+                    }
                 case 5:
                     offset = 2;
                     if ( addresses[offset] )
                     {
                         display = 5;
-                        goto display_address_offset;
-                    }
-                    // no break is intentional
-                case 6:
-                    offset = 3;
-                    if ( addresses[offset] )
-                    {
-                        display = 6;
                         goto display_amount_offset;
                     }
                 // no break is intentional
+                case 6:
+                    offset = 2;
+                    if ( addresses[offset] )
+                    {
+                        display = 6;
+                        goto display_address_offset;
+                    }
+                    // no break is intentional
                 case 7:
                     offset = 3;
                     if ( addresses[offset] )
                     {
                         display = 7;
+                        goto display_amount_offset;
+                    }
+                // no break is intentional
+                case 8:
+                    offset = 3;
+                    if ( addresses[offset] )
+                    {
+                        display = 8;
                         goto display_address_offset;
                     }
 
                 // no break is intentional
-                case 8:
-                    offset = 4;
-                    if ( addresses[offset] )
-                    {
-                        display = 8;
-                        goto display_amount_offset;
-                    }
-                    // no break is intentional
                 case 9:
                     offset = 4;
                     if ( addresses[offset] )
                     {
                         display = 9;
+                        goto display_amount_offset;
+                    }
+                    // no break is intentional
+                case 10:
+                    offset = 4;
+                    if ( addresses[offset] )
+                    {
+                        display = 10;
                         goto display_address_offset;
                     }
 
                 // no break is intentional
-                case 10:
-                    offset = 5;
-                    if ( addresses[offset] )
-                    {
-                        display = 10;
-                        goto display_amount_offset;
-                    }
-                    // no break is intentional
                 case 11:
                     offset = 5;
                     if ( addresses[offset] )
                     {
                         display = 11;
-                        goto display_address_offset;
+                        goto display_amount_offset;
                     }
                     // no break is intentional
                 case 12:
-                    offset = 6;
+                    offset = 5;
                     if ( addresses[offset] )
                     {
                         display = 12;
-                        goto display_amount_offset;
+                        goto display_address_offset;
                     }
                     // no break is intentional
                 case 13:
@@ -1663,32 +1676,32 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     if ( addresses[offset] )
                     {
                         display = 13;
-                        goto display_address_offset;
+                        goto display_amount_offset;
                     }
-
                     // no break is intentional
                 case 14:
-                    offset = 7;
+                    offset = 6;
                     if ( addresses[offset] )
                     {
                         display = 14;
-                        goto display_amount_offset;
+                        goto display_address_offset;
                     }
+
                     // no break is intentional
                 case 15:
                     offset = 7;
                     if ( addresses[offset] )
                     {
                         display = 15;
-                        goto display_address_offset;
+                        goto display_amount_offset;
                     }
                     // no break is intentional
                 case 16:
-                    offset = 8;
+                    offset = 7;
                     if ( addresses[offset] )
                     {
                         display = 16;
-                        goto display_amount_offset;
+                        goto display_address_offset;
                     }
                     // no break is intentional
                 case 17:
@@ -1696,15 +1709,15 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     if ( addresses[offset] )
                     {
                         display = 17;
-                        goto display_address_offset;
+                        goto display_amount_offset;
                     }
                     // no break is intentional
                 case 18:
-                    offset = 9;
+                    offset = 8;
                     if ( addresses[offset] )
                     {
                         display = 18;
-                        goto display_amount_offset;
+                        goto display_address_offset;
                     }
                     // no break is intentional
                 case 19:
@@ -1712,20 +1725,30 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     if ( addresses[offset] )
                     {
                         display = 19;
+                        goto display_amount_offset;
+                    }
+                    // no break is intentional
+                case 20:
+                    offset = 9;
+                    if ( addresses[offset] )
+                    {
+                        display = 20;
                         goto display_address_offset;
                     }
                 // no break is intentional
-                case 20: // fees
+		/*
+                case 0: // fees
                     if ( strlen(maxFee) != 0 )
                     {
-                        display = 20;
+                        display = 0;
                     }
                     goto display_detail;
+		    */
                 }
 
                 UX_CALLBACK_SET_INTERVAL(MAX(
-                    1000,
-                    500 + bagl_label_roundtrip_duration_ms(&tmp_element, 7)));
+                    500,
+                    1000 + bagl_label_roundtrip_duration_ms(&tmp_element, 7)));
                 return &tmp_element;
             }
         }
@@ -3517,8 +3540,8 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
 
-    ux_step_count = 1;
-    ux_step = 0;
+    ux_step_count = 2;
+    ux_step = 1;
 
     maxFee[0] = 0; //no explicit fees for FAT transaction. It is a separate EC transaction cost signed for separately
 

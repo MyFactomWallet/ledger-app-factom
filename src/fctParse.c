@@ -183,7 +183,7 @@ parserStatus_e parseTxAddress(uint8_t *data, uint32_t length,
         *offset += bytes;
 
 
-        if ( v == 0 )
+        if ( v == 0xFFFFFFFF )
         {
             result = USTREAM_FAULT_VALUE;
             break;//out of bounds -- bad varint

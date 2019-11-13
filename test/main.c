@@ -10,6 +10,7 @@
 const int8_t fcthex[] =   "02016253dfaa7301010087db406ff65cb9dd72a1e99bcd51da5e03b0ccafc237dbf1318a8d7438e22371c892d6868d20f02894db071e2eb38fdc56c697caaeba7dc19bddae2c6e7084cc3120d667b49f";//0155d679fb5b160f00cf5e5d34e5b1855e67e76317ebe35816cb34c86e25803ea90ac83d4011aebf93ee29e9a4b6860a1f023d84770341ae8ab3c2ac6cd9192edc42eb3ac6637badf46536545aebf8f083762bd4ac79ffb378726433020d149f06";
 const int8_t echex[] =    "00016227acddfe57cf6740c4f30ae39d71f75710fb4ea9c843d5c01755329a42ccab52034e1f7901d5b8efdb52a15c4007d341eb1193903a021ed7aaa9a3cf4234c32ef8a213de00";
 
+const int8_t fctechex[] = "02016e5d421562010001bd84400e9dcd94f81f01517bfcd324e36f27c2decb926e80aae5085c6d4a9396a4858b0037399721298d77984585040ea61055377039a4c3f3e2cd48c46ff643d50fd64f";
 const int8_t entry[] = "000165e2d19bbebe548e2189e84824a90aa900f2d2ede8ff5d65383be3bece06e85f430a07fb1700";
 
 void hextobin(unsigned char *v, unsigned char *s, size_t n) {
@@ -77,7 +78,7 @@ int main ( int argc, char argv[] )
     uint32_t length;
     txContent_t content;
 
-    length = strlen(fcthex);
+    length = strlen(fctechex);
     if ( length*2 > MAX_TXN_SIZE )
     {
         printf("[ERROR]: transaction length too long.\n");
@@ -85,7 +86,7 @@ int main ( int argc, char argv[] )
     }
 
     bzero(data, sizeof(data));
-    hextobin(data, fcthex, length/2);
+    hextobin(data, fctechex, length/2);
 
 
     ret = parseTx(data,length, &content);
@@ -145,6 +146,7 @@ int main ( int argc, char argv[] )
         getFctAddressStringFromKey(&pubkey,out,PUBLIC_OFFSET_EC);
         fprintf(stderr, "Test EC PUB KEY %s\n", out);
     }
+
 
 
     //jsmnmain();
