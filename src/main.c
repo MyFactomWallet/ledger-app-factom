@@ -1579,9 +1579,9 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                         }
 
 			os_memset((void*)addressSummary, 0, sizeof(addressSummary));
-                        os_memmove((void *)addressSummary, (void*)fullAddress, 10);
-                        os_memmove((void *)(addressSummary + 10), "..", 2);
-                        os_memmove((void *)(addressSummary + 12),
+                        os_memmove((void *)addressSummary, (void*)fullAddress, 7);
+                        os_memmove((void *)(addressSummary + 7), "..", 2);
+                        os_memmove((void *)(addressSummary + 9),
                                    (void*)(fullAddress + strlen(fullAddress) - 4), 4);
                         goto display_detail;
                     }
@@ -1747,8 +1747,8 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                 }
 
                 UX_CALLBACK_SET_INTERVAL(MAX(
-                    500,
-                    1000 + bagl_label_roundtrip_duration_ms(&tmp_element, 7)));
+                    1000,
+                    bagl_label_roundtrip_duration_ms(&tmp_element, 7)));
                 return &tmp_element;
             }
         }
