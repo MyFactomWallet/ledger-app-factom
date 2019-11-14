@@ -3801,7 +3801,6 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                 break;
 #endif
                 
-#endif // TARGET_NANOX
                 
             case INS_SIGN_FAT:
                 handleSignFatTx(G_io_apdu_buffer[OFFSET_P1],
@@ -3809,6 +3808,7 @@ void handleApdu(volatile unsigned int *flags, volatile unsigned int *tx) {
                            G_io_apdu_buffer + OFFSET_CDATA,
                            G_io_apdu_buffer[OFFSET_LC], flags, tx);
                 break;
+#endif // TARGET_NANOX
             case INS_GET_APP_CONFIGURATION:
                 handleGetAppConfiguration(
                     G_io_apdu_buffer[OFFSET_P1], G_io_apdu_buffer[OFFSET_P2],
