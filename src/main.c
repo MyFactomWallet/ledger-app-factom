@@ -199,13 +199,14 @@ volatile txContentAddress_t *addresses[MAX_OUTPUTS];
 
 bagl_element_t tmp_element;
 
-#ifdef TARGET_NANOX
+#ifdef HAVE_UX_FLOW
 #include "ux.h"
+
 ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
-#else // TARGET_NANOX
+#else // HAVE_UX_FLOW
 ux_state_t ux;
-#endif // TARGET_NANOX
+#endif // HAVE_UX_FLOW
 
 // display stepped screens
 unsigned int ux_step;
@@ -364,7 +365,7 @@ unsigned int ui_idle_blue_button(unsigned int button_mask,
 }
 #endif // #if defined(TARGET_BLUE)
 
-#if defined(TARGET_NANOS)
+#if defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
 
 const ux_menu_entry_t menu_main[];
 //const ux_menu_entry_t menu_settings_browser[];
@@ -1390,7 +1391,8 @@ unsigned int ui_address_blue_button(unsigned int button_mask,
 }
 #endif // #if defined(TARGET_BLUE)
 
-#if defined(TARGET_NANOS)
+#if defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
+
 
 #include "ui_address_nanos.h"
 
@@ -1417,7 +1419,8 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
                                      unsigned int button_mask_counter);
 #endif // #if defined(TARGET_NANOS)
 
-#if defined(TARGET_NANOS)
+#if defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
+
 const char *const ui_approval_details[][2] = {
     {"Fees", (const char*)maxFee},
     {"Output 1 Amount", (const char*)fullAmount}, {"Output 1 Address", (const char*)addressSummary},
@@ -2039,7 +2042,7 @@ unsigned int ui_approval_nanos_button(unsigned int button_mask,
 
 #endif // #if defined(TARGET_NANOS)
 
-#if defined(TARGET_NANOX)
+#if defined(HAVE_UX_FLOW)
 
 const char* settings_submenu_getter(unsigned int idx);
 void settings_submenu_selector(unsigned int idx);
@@ -2226,14 +2229,14 @@ void set_state_data() {
         case STATE_AMOUNT:
             // set amount
             strcpy(fullAmount, "Amount");
-            fct_print_amount(addresses[current_output]->value,(int8_t*)fullAddress,sizeof(fullAddress));
+            fct_print_amount(addresses[current_output]->amt.value,(int8_t*)fullAddress,sizeof(fullAddress));
             break;
 
         case STATE_ADDRESS:
             // set destination address
             strcpy(fullAmount, "Destination");
             os_memset((void*)fullAddress, 0, sizeof(fullAddress));
-            getFctAddressStringFromRCDHash((uint8_t*)addresses[current_output]->rcdhash,(uint8_t*)fullAddress, addresses_type[current_output]);
+            getFctAddressStringFromRCDHash((uint8_t*)addresses[current_output]->addr.rcdhash,(uint8_t*)fullAddress, addresses_type[current_output]);
             break;
     
         default:
@@ -2315,7 +2318,7 @@ void ui_idle(void) {
     skipWarning = false;
 #if defined(TARGET_BLUE)
     UX_DISPLAY(ui_idle_blue, NULL);
-#elif defined(TARGET_NANOS)
+#elif defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
     if ( batchModeEnabled )
     {
       UX_MENU_DISPLAY(0, menu_batchmode, NULL);
@@ -2324,7 +2327,7 @@ void ui_idle(void) {
     {
     UX_MENU_DISPLAY(0, menu_main, NULL);
     }
-#elif defined(TARGET_NANOX)
+#elif defined(HAVE_UX_FLOW)
     // reserve a display stack slot if none yet
     if(G_ux.stack_count == 0) {
         ux_stack_push();
@@ -2371,7 +2374,7 @@ unsigned int io_seproxyhal_touch_address_cancel(const bagl_element_t *e) {
     return 0; // do not redraw the widget
 }
 
-#if defined(TARGET_NANOS)
+#if defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
 unsigned int ui_address_nanos_button(unsigned int button_mask,
                                      unsigned int button_mask_counter) {
     switch (button_mask) {
@@ -2621,7 +2624,7 @@ void ui_approval_transaction_blue_init(void) {
 }
 
 
-#elif defined(TARGET_NANOS)
+#elif defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
 unsigned int ui_approval_nanos_button(unsigned int button_mask,
                                       unsigned int button_mask_counter)
 {
@@ -2862,13 +2865,15 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
                  (keytype == PUBLIC_OFFSET_ID) ? 55 : 52,
                  tmpCtx.publicKeyContext.address);
         UX_DISPLAY(ui_address_blue, ui_address_blue_prepro);
-#elif defined(TARGET_NANOS)
+#elif defined(TARGET_NANOS) && !defined (HAVE_UX_FLOW)
         snprintf((char*)fullAddress, sizeof(fullAddress), " %.*s ", 
                  (keytype == PUBLIC_OFFSET_ID) ? 55 : 52,
                  tmpCtx.publicKeyContext.address);
         ux_step = 0;
         ux_step_count = 2;
         UX_DISPLAY(ui_address_nanos, ui_address_prepro);
+#else defined(HAVE_UX_FLOW)
+#pragma message("FIXME: handleGetPublicKey")
 #endif // #if TARGET_ID
 
         *flags |= IO_ASYNCH_REPLY;
@@ -3053,9 +3058,9 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
-#elif defined(TARGET_NANOS)
+#elif defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
     UX_DISPLAY(ui_approval_nanos, ui_approval_prepro);
-#elif defined(TARGET_NANOX)
+#elif defined(HAVE_UX_FLOW)
     current_output = 0;
     num_outputs = output_ct;
     current_state = STATE_BORDER;
@@ -3089,10 +3094,11 @@ void handleStoreChainId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
-#elif defined(TARGET_NANOS)
+#elif defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
     UX_DISPLAY(ui_approval_nanos_store_chainid, ui_approval_prepro_store_chainid);
     *flags |= IO_ASYNCH_REPLY;
-#elif defined(TARGET_NANOX)
+#elif defined(HAVE_UX_FLOW)
+#pragma message("FIXME: handleStoreChainId")
     THROW(ERROR_TARGET_NOT_SUPPORTED);
 #endif
 
@@ -3183,7 +3189,7 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
-#elif defined(TARGET_NANOS)
+#elif defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
     if ( batchModeEnabled )
     {
         io_seproxyhal_touch_id_tx_ok(NULL);
@@ -3194,7 +3200,8 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         // UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
         *flags |= IO_ASYNCH_REPLY;
     }
-#elif defined(TARGET_NANOX)
+#elif defined(HAVE_UX_FLOW)
+#pragma message("FIXME: handleSignRawMessageWithId")
     THROW(ERROR_TARGET_NOT_SUPPORTED);
 #endif
 
@@ -3381,7 +3388,7 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
-#elif defined(TARGET_NANOS)
+#elif defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
     if ( msg.bip32Path[1] == FACTOM_ID_TYPE && batchModeEnabled )
     {
        io_seproxyhal_touch_id_tx_ok(NULL);
@@ -3391,7 +3398,8 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
         *flags |= IO_ASYNCH_REPLY;
     }
-#elif defined(TARGET_NANOX)
+#elif defined(HAVE_UX_FLOW)
+#pragma message("FIXME: handleSignMessageHash")
     THROW(ERROR_TARGET_NOT_SUPPORTED);
 #endif
 
@@ -3572,9 +3580,10 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
-#elif defined(TARGET_NANOS)
+
+#elif defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
     UX_DISPLAY(ui_approval_nanos, ui_approval_prepro);
-#elif defined(TARGET_NANOX)
+#elif defined(HAVE_UX_FLOW)
     current_output = 0;
     num_outputs = output_ct;
     current_state = STATE_BORDER;
@@ -3725,9 +3734,10 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
-#elif defined(TARGET_NANOS)
+#elif defined(TARGET_NANOS) && !defined(HAVE_UX_FLOW)
     UX_DISPLAY(ui_approval_nanos_id, ui_approval_prepro_id);
-#elif defined(TARGET_NANOX)
+#elif defined(HAVE_UX_FLOW)
+#pragma message("FIXME: handleCommitSign")
     THROW(ERROR_TARGET_NOT_SUPPORTED);
 #endif // #if TARGET
 
@@ -3996,6 +4006,11 @@ __attribute__((section(".boot"))) int main(void) {
             TRY {
                 io_seproxyhal_init();
 
+//#ifdef TARGET_NANOX
+//                // grab the current plane mode setting
+//                G_io_app.plane_mode = os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
+//#endif // TARGET_NANOX
+                
                 if (N_storage.initialized != 0x01) {
                     internalStorage_t storage;
                     //storage.fidoTransport = 0x00;
