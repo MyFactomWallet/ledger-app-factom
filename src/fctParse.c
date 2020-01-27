@@ -70,7 +70,7 @@ parserStatus_e parseTxV2(uint8_t *data, uint32_t length, txContent_t *context, u
     }
 
     //parse timestamp.  not really concerned about this here.
-    context->header.timestamp_ms = &data[*offset];
+//    context->header.timestamp_ms = &data[*offset];
     *offset += 6;
 
     if ( *offset > length )
@@ -246,7 +246,7 @@ error:
 
 void initContent(txContent_t *content)
 {
-    content->header.timestamp_ms = NULL;
+//    content->header.timestamp_ms = NULL;
     content->header.inputcount = 0;
     content->header.outputcount = 0;
     content->header.ecpurchasecount = 0;

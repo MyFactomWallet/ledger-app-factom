@@ -39,7 +39,7 @@
 //header
 typedef struct txContentHeader_t {
     uint8_t version;
-    uint8_t *timestamp_ms;
+//    uint8_t *timestamp_ms;
     uint64_t fee;
     uint8_t inputcount;
     uint8_t outputcount;
@@ -82,7 +82,7 @@ typedef struct txContent_t {
     txContentAddress_t outputs[MAX_OUTPUT_ADDRESSES];
     union {
         txContentAddress_t ecpurchase[MAX_ECOUTPUT_ADDRESSES];
-        jsmntok_t fat[42]; /* We expect no more than 128 tokens */
+        jsmntok_t fat[76]; /* We expect no more than 128 tokens */
     } t;
 } txContent_t;
 
