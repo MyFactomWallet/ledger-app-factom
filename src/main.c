@@ -187,11 +187,18 @@ volatile txContent_t txContent;
 volatile uint8_t batchModeEnabled = 0;
 volatile uint8_t dataAllowed;
 volatile char confirm_string[16];
-volatile char fullAddress[FCT_ADDRESS_LENGTH+1];
-volatile char addressSummary[32];
-volatile char fullAmount[32];
-
 volatile char maxFee[16];
+
+struct {
+    volatile char fullAddress[FCT_ADDRESS_LENGTH+1];
+    volatile char addressSummary[16];
+    volatile char fullAmount[16];
+} outstr;
+
+//volatile const char *outstr.fullAddress = outstr.outstr.fullAddress;
+//volatile const char *outstr.addressSummary = outstr.outstr.addressSummary;
+//volatile const char *outstr.fullAmount = outstr.outstr.fullAmount;
+
 volatile bool dataPresent;
 volatile bool skipWarning;
 volatile uint8_t addresses_type[MAX_OUTPUTS];
@@ -589,7 +596,7 @@ unsigned int ui_settings_blue_button(unsigned int button_mask,
 #endif // #if defined(TARGET_BLUE)
 
 #if defined(TARGET_BLUE)
-// reuse addressSummary for each line content
+// reuse outstr.addressSummary for each line content
 const char *ui_details_title;
 const char *ui_details_content;
 typedef void (*callback_t)(void);
@@ -626,7 +633,7 @@ const bagl_element_t ui_details_blue[] = {
     /// TOP STATUS BAR
     {{BAGL_LABELINE, 0x01, 0, 45, 320, 30, 0, 0, BAGL_FILL, 0xFFFFFF, COLOR_APP,
       BAGL_FONT_OPEN_SANS_SEMIBOLD_10_13PX | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -664,7 +671,7 @@ const bagl_element_t ui_details_blue[] = {
 
     {{BAGL_LABELINE, 0x10, 30, 136, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -673,7 +680,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x11, 30, 159, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -682,7 +689,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x12, 30, 182, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -691,7 +698,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x13, 30, 205, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -700,7 +707,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x14, 30, 228, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -709,7 +716,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x15, 30, 251, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -718,7 +725,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x16, 30, 274, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -727,7 +734,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x17, 30, 297, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -736,7 +743,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x18, 30, 320, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -746,7 +753,7 @@ const bagl_element_t ui_details_blue[] = {
     //"..." at the end if too much
     {{BAGL_LABELINE, 0x19, 30, 343, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -773,9 +780,9 @@ const bagl_element_t *ui_details_blue_prepro(const bagl_element_t *element) {
     } else if (element->component.userid > 0) {
         unsigned int length = strlen(ui_details_content);
         if (length >= (element->component.userid & 0xF) * MAX_CHAR_PER_LINE) {
-            os_memset(addressSummary, 0, MAX_CHAR_PER_LINE + 1);
+            os_memset(outstr.addressSummary, 0, MAX_CHAR_PER_LINE + 1);
             os_memmove(
-                addressSummary,
+                outstr.addressSummary,
                 ui_details_content +
                     (element->component.userid & 0xF) * MAX_CHAR_PER_LINE,
                 MIN(length -
@@ -953,7 +960,7 @@ const bagl_element_t ui_approval_blue[] = {
      0,
      NULL,
      NULL,
-     NULL}, // fullAmount
+     NULL}, // outstr.fullAmount
     {{BAGL_LABELINE, 0x20, 284, 196, 6, 16, 0, 0, BAGL_FILL, 0x999999,
       COLOR_BG_1, BAGL_FONT_SYMBOLS_0 | BAGL_FONT_ALIGNMENT_RIGHT, 0},
      BAGL_FONT_SYMBOLS_0_MINIRIGHT,
@@ -1011,7 +1018,7 @@ const bagl_element_t ui_approval_blue[] = {
      0,
      NULL,
      NULL,
-     NULL}, // fullAddress
+     NULL}, // outstr.fullAddress
     {{BAGL_LABELINE, 0x21, 284, 245, 6, 16, 0, 0, BAGL_FILL, 0x999999,
       COLOR_BG_1, BAGL_FONT_SYMBOLS_0 | BAGL_FONT_ALIGNMENT_RIGHT, 0},
      BAGL_FONT_SYMBOLS_0_MINIRIGHT,
@@ -1322,7 +1329,7 @@ const bagl_element_t ui_address_blue[] = {
 
     {{BAGL_LABELINE, 0x10, 30, 136, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -1331,7 +1338,7 @@ const bagl_element_t ui_address_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x11, 30, 159, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     addressSummary,
+     outstr.addressSummary,
      0,
      0,
      0,
@@ -1367,12 +1374,12 @@ const bagl_element_t ui_address_blue[] = {
 
 unsigned int ui_address_blue_prepro(const bagl_element_t *element) {
     if (element->component.userid > 0) {
-        unsigned int length = strlen(fullAddress);
+        unsigned int length = strlen(outstr.fullAddress);
         if (length >= (element->component.userid & 0xF) * MAX_CHAR_PER_LINE) {
-            os_memset(addressSummary, 0, MAX_CHAR_PER_LINE + 1);
+            os_memset(outstr.addressSummary, 0, MAX_CHAR_PER_LINE + 1);
             os_memmove(
-                addressSummary,
-                fullAddress +
+                outstr.addressSummary,
+                outstr.fullAddress +
                     (element->component.userid & 0xF) * MAX_CHAR_PER_LINE,
                 MIN(length -
                         (element->component.userid & 0xF) * MAX_CHAR_PER_LINE,
@@ -1423,16 +1430,16 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
 
 const char *const ui_approval_details[][2] = {
     {"Fees", (const char*)maxFee},
-    {"Output 1 Amount", (const char*)fullAmount}, {"Output 1 Address", (const char*)addressSummary},
-    {"Output 2 Amount", (const char*)fullAmount}, {"Output 2 Address", (const char*)addressSummary},
-    {"Output 3 Amount", (const char*)fullAmount}, {"Output 3 Address", (const char*)addressSummary},
-    {"Output 4 Amount", (const char*)fullAmount}, {"Output 4 Address", (const char*)addressSummary},
-    {"Output 5 Amount", (const char*)fullAmount}, {"Output 5 Address", (const char*)addressSummary},
-    {"Output 6 Amount", (const char*)fullAmount}, {"Output 6 Address", (const char*)addressSummary},
-    {"Output 7 Amount", (const char*)fullAmount}, {"Output 7 Address", (const char*)addressSummary},
-    {"Output 8 Amount", (const char*)fullAmount}, {"Output 8 Address", (const char*)addressSummary},
-    {"Output 9 Amount", (const char*)fullAmount}, {"Output 9 Address", (const char*)addressSummary},
-    {"Output 10 Amount", (const char*)fullAmount}, {"Output 10 Address", (const char*)addressSummary},
+    {"Output 1 Amount", (const char*)outstr.fullAmount}, {"Output 1 Address", (const char*)outstr.addressSummary},
+    {"Output 2 Amount", (const char*)outstr.fullAmount}, {"Output 2 Address", (const char*)outstr.addressSummary},
+    {"Output 3 Amount", (const char*)outstr.fullAmount}, {"Output 3 Address", (const char*)outstr.addressSummary},
+    {"Output 4 Amount", (const char*)outstr.fullAmount}, {"Output 4 Address", (const char*)outstr.addressSummary},
+    {"Output 5 Amount", (const char*)outstr.fullAmount}, {"Output 5 Address", (const char*)outstr.addressSummary},
+    {"Output 6 Amount", (const char*)outstr.fullAmount}, {"Output 6 Address", (const char*)outstr.addressSummary},
+    {"Output 7 Amount", (const char*)outstr.fullAmount}, {"Output 7 Address", (const char*)outstr.addressSummary},
+    {"Output 8 Amount", (const char*)outstr.fullAmount}, {"Output 8 Address", (const char*)outstr.addressSummary},
+    {"Output 9 Amount", (const char*)outstr.fullAmount}, {"Output 9 Address", (const char*)outstr.addressSummary},
+    {"Output 10 Amount", (const char*)outstr.fullAmount}, {"Output 10 Address", (const char*)outstr.addressSummary},
 };
 
 const bagl_element_t ui_approval_nanos[] = {
@@ -1500,7 +1507,7 @@ const bagl_element_t ui_approval_nanos[] = {
      NULL},
     {{BAGL_LABELINE, 0x12, 23, 26, 82, 12, 0x80 | 10, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 26},
-     NULL, //(char *)fullAmount,
+     NULL, //(char *)outstr.fullAmount,
      0,
      0,
      0,
@@ -1513,6 +1520,7 @@ const bagl_element_t ui_approval_nanos[] = {
 unsigned int ui_approval_prepro(const bagl_element_t *element) {
     unsigned int display = 1;
     uint8_t offset = 0;
+    int havemoore = 0;
     if (element->component.userid > 0) {
         // display the meta element when at least bigger
         display = (ux_step == element->component.userid - 1) ||
@@ -1545,22 +1553,22 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     display_amount_offset:
                     if ( addresses[offset] )
                     {
-                        if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT)
+                        if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT )
                         {
-                            //fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
-                            int size = addresses[offset]->amt.fat.size<sizeof(fullAmount)?addresses[offset]->amt.fat.size:(sizeof(fullAmount)-1);
-                            strncpy((int8_t*)fullAmount, addresses[offset]->amt.fat.entry, size);
+                            //fct_print_amount(addresses[offset]->amt.value,(int8_t*)outstr.fullAmount,sizeof(outstr.fullAmount));
+                            int size = addresses[offset]->amt.fat.size<sizeof(outstr.fullAmount)?addresses[offset]->amt.fat.size:(sizeof(outstr.fullAmount)-1);
+                            strncpy((int8_t*)outstr.fullAmount, addresses[offset]->amt.fat.entry, size);
                         }
                         else
                         {
 			    if ( addresses[offset]->amt.value == 0 )
 			    {
-                                strcpy(fullAmount, "FCT 0");
+                                strcpy(outstr.fullAmount, "FCT 0");
                                 //goto display_address_offset;
                             }
 			    else
 			    {
-                                fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
+                                fct_print_amount(addresses[offset]->amt.value,(int8_t*)outstr.fullAmount,sizeof(outstr.fullAmount));
 			    }
                         }
 
@@ -1571,21 +1579,24 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     display_address_offset:
                     if ( addresses[offset] )
                     {
-			os_memset((void*)fullAddress, 0, sizeof(fullAddress));
+			os_memset((void*)outstr.fullAddress, 0, sizeof(outstr.fullAddress));
                         if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT)
                         {
-                            strncpy(fullAddress,addresses[offset]->addr.fctaddr,52);
+                            strncpy(outstr.fullAddress,addresses[offset]->addr.fctaddr,52);
                         }
                         else
                         {
-                            getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->addr.rcdhash,(uint8_t*)fullAddress, addresses_type[offset]);
+                            getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->addr.rcdhash,(uint8_t*)outstr.fullAddress, addresses_type[offset]);
                         }
 
-			os_memset((void*)addressSummary, 0, sizeof(addressSummary));
-                        os_memmove((void *)addressSummary, (void*)fullAddress, 7);
-                        os_memmove((void *)(addressSummary + 7), "..", 2);
-                        os_memmove((void *)(addressSummary + 9),
-                                   (void*)(fullAddress + strlen(fullAddress) - 4), 4);
+			os_memset((void*)outstr.addressSummary, 0, sizeof(outstr.addressSummary));
+                        os_memmove((void *)outstr.addressSummary, (void*)outstr.fullAddress, 7);
+                        os_memmove((void *)(outstr.addressSummary + 7), "..", 2);
+                        os_memmove((void *)(outstr.addressSummary + 9),
+                                   (void*)(outstr.fullAddress + strlen(outstr.fullAddress) - 4), 4);
+			if ( strcmp(outstr.addressSummary, "FA1zT4a..F2MC") == 0 ) {
+                            os_memmove((void *)(outstr.addressSummary), "Burn Address", strlen("Burn Address"));
+			}
                         goto display_detail;
                     }
                 display_detail:
@@ -1806,7 +1817,7 @@ const bagl_element_t ui_approval_nanos_ec[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)addressSummary,
+     (char*)outstr.addressSummary,
      0,
      0,
      0,
@@ -1862,7 +1873,7 @@ const bagl_element_t ui_approval_nanos_id[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)addressSummary,
+     (char*)outstr.addressSummary,
      0,
      0,
      0,
@@ -1919,7 +1930,7 @@ const bagl_element_t ui_approval_nanos_store_chainid[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)addressSummary,
+     (char*)outstr.addressSummary,
      0,
      0,
      0,
@@ -2169,8 +2180,8 @@ UX_STEP_NOCB(
     ux_variable_display, 
     bnnn_paging,
     {
-      .title = fullAmount,
-      .text = fullAddress
+      .title = outstr.fullAmount,
+      .text = outstr.fullAddress
     });
 UX_STEP_INIT(
     ux_init_lower_border,
@@ -2203,7 +2214,7 @@ UX_STEP_VALID(
       &C_icon_crossmark,
       "Reject",
     });
-// confirm_full: confirm transaction / Amount: fullAmount / Address: fullAddress / Fees: feesAmount
+// confirm_full: confirm transaction / Amount: outstr.fullAmount / Address: outstr.fullAddress / Fees: feesAmount
 UX_FLOW(ux_confirm_full_flow,
   &ux_confirm_full_flow_1_step,
   &ux_init_upper_border,
@@ -2228,15 +2239,15 @@ void set_state_data() {
     {
         case STATE_AMOUNT:
             // set amount
-            strcpy(fullAmount, "Amount");
-            fct_print_amount(addresses[current_output]->amt.value,(int8_t*)fullAddress,sizeof(fullAddress));
+            strcpy(outstr.fullAmount, "Amount");
+            fct_print_amount(addresses[current_output]->amt.value,(int8_t*)outstr.fullAddress,sizeof(outstr.fullAddress));
             break;
 
         case STATE_ADDRESS:
             // set destination address
-            strcpy(fullAmount, "Destination");
-            os_memset((void*)fullAddress, 0, sizeof(fullAddress));
-            getFctAddressStringFromRCDHash((uint8_t*)addresses[current_output]->addr.rcdhash,(uint8_t*)fullAddress, addresses_type[current_output]);
+            strcpy(outstr.fullAmount, "Destination");
+            os_memset((void*)outstr.fullAddress, 0, sizeof(outstr.fullAddress));
+            getFctAddressStringFromRCDHash((uint8_t*)addresses[current_output]->addr.rcdhash,(uint8_t*)outstr.fullAddress, addresses_type[current_output]);
             break;
     
         default:
@@ -2617,8 +2628,8 @@ void ui_approval_transaction_blue_init(void) {
     ui_approval_blue_cancel =
         (bagl_element_callback_t)io_seproxyhal_touch_tx_cancel;
     G_ui_approval_blue_state = APPROVAL_TRANSACTION;
-    ui_approval_blue_values[0] = fullAmount;
-    ui_approval_blue_values[1] = fullAddress;
+    ui_approval_blue_values[0] = outstr.fullAmount;
+    ui_approval_blue_values[1] = outstr.fullAddress;
     ui_approval_blue_values[2] = maxFee;
     ui_approval_blue_init();
 }
@@ -2861,12 +2872,12 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         // prepare for a UI based reply
         skipWarning = false;
 #if defined(TARGET_BLUE)
-        snprintf((char*)fullAddress, sizeof(fullAddress), "%.*s", 
+        snprintf((char*)outstr.fullAddress, sizeof(outstr.fullAddress), "%.*s", 
                  (keytype == PUBLIC_OFFSET_ID) ? 55 : 52,
                  tmpCtx.publicKeyContext.address);
         UX_DISPLAY(ui_address_blue, ui_address_blue_prepro);
 #elif defined(TARGET_NANOS) && !defined (HAVE_UX_FLOW)
-        snprintf((char*)fullAddress, sizeof(fullAddress), " %.*s ", 
+        snprintf((char*)outstr.fullAddress, sizeof(outstr.fullAddress), " %.*s ", 
                  (keytype == PUBLIC_OFFSET_ID) ? 55 : 52,
                  tmpCtx.publicKeyContext.address);
         ux_step = 0;
@@ -3024,8 +3035,8 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
     // "confirm", amount, address, ..., amount[n], address[n], fee
-    os_memset((void*)addressSummary, 0, sizeof(addressSummary));
-    os_memset((void*)fullAmount, 0, sizeof(fullAmount));
+    os_memset((void*)outstr.addressSummary, 0, sizeof(outstr.addressSummary));
+    os_memset((void*)outstr.fullAmount, 0, sizeof(outstr.fullAmount));
     for ( int i = 0; i < MAX_OUTPUTS; ++i )
     {
         addresses[i] = NULL;
@@ -3086,7 +3097,7 @@ void handleStoreChainId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         THROW(BTCHIP_SW_INCORRECT_DATA);
     }
     os_memmove(&tmpCtx.chainidContext.chainId,workBuffer,32);
-    snprintf(addressSummary,sizeof(addressSummary),"Store Chain ID?");
+    snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Store Chain ID?");
 
     ux_step_count = 0;
     ux_step = 0;
@@ -3181,7 +3192,7 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     //reset header check now that we have valid data
     tmpCtx.transactionContext.headervalid = 0;
 
-    snprintf(addressSummary,sizeof(addressSummary),"Sign Data w/ID");
+    snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign Data w/ID");
 
     ux_step_count = 0;
     ux_step = 0;
@@ -3370,13 +3381,13 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     switch (msg.bip32Path[1])
     {
         case FACTOM_ID_TYPE:
-            snprintf(addressSummary,sizeof(addressSummary),"Sign Data w/ID");
+            snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign Data w/ID");
             break;
         case FCT_TYPE:
-            snprintf(addressSummary,sizeof(addressSummary),"Sign w/FCT Addr");
+            snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign w/FCT Addr");
             break;
         case EC_TYPE:
-            snprintf(addressSummary,sizeof(addressSummary),"Sign w/EC Addr");
+            snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign w/EC Addr");
 	    break;
         default:
             THROW(0x6B00);
@@ -3540,8 +3551,8 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
     // "confirm", amount, address, ..., amount[n], address[n], fee
-    os_memset((void*)addressSummary, 0, sizeof(addressSummary));
-    os_memset((void*)fullAmount, 0, sizeof(fullAmount));
+    os_memset((void*)outstr.addressSummary, 0, sizeof(outstr.addressSummary));
+    os_memset((void*)outstr.fullAmount, 0, sizeof(outstr.fullAmount));
     for ( int i = 0; i < MAX_OUTPUTS; ++i )
     {
         addresses[i] = NULL;
@@ -3692,7 +3703,7 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             THROW(ret);
         }
 
-	snprintf(addressSummary,sizeof(addressSummary),"Sign Chain?");
+	snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign Chain?");
         //os_memmove(pubkey.W,txCcContent.ecpubkey,pubkey.W_len);
 
     }
@@ -3708,7 +3719,7 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         }
 
         //os_memmove(pubkey.W,txEcContent.ecpubkey,pubkey.W_len);
-	snprintf((char*)addressSummary,sizeof(addressSummary),"Sign Entry?");
+	snprintf((char*)outstr.addressSummary,sizeof(outstr.addressSummary),"Sign Entry?");
 
     }
 
@@ -3719,10 +3730,10 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     os_memset((void *) addr, 0, sizeof(addr));
     getFctAddressStringFromKey(&pubkey,addr,PUBLIC_OFFSET_EC);
 
-    os_memset((void *) addressSummary, 0, sizeof(addressSummary));
-    os_memmove((void *) addressSummary, addr, 10);
-    os_memmove((void *)(addressSummary + 10), "..", 2);
-    os_memmove((void *)(addressSummary + 12),
+    os_memset((void *) outstr.addressSummary, 0, sizeof(outstr.addressSummary));
+    os_memmove((void *) outstr.addressSummary, addr, 7);
+    os_memmove((void *)(outstr.addressSummary + 7), "..", 2);
+    os_memmove((void *)(outstr.addressSummary + 9),
                         addr + addressLength - 4, 4);
     ux_step_count = 2; 
 #else
