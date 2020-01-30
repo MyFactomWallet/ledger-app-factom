@@ -1564,7 +1564,7 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
 			    if ( addresses[offset]->amt.value == 0 )
 			    {
                                 strcpy(outstr.fullAmount, "FCT 0");
-                                //goto display_address_offset;
+                                goto display_address_offset;
                             }
 			    else
 			    {
