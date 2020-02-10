@@ -188,11 +188,12 @@ volatile uint8_t batchModeEnabled = 0;
 volatile uint8_t dataAllowed;
 volatile char confirm_string[16];
 volatile char maxFee[16];
+volatile short listidx;
 
 struct {
     volatile char fullAddress[FCT_ADDRESS_LENGTH+1];
-    volatile char addressSummary[16];
-    volatile char fullAmount[16];
+//    volatile char addressSummary[16];
+    volatile char fullAmount[FCT_ADDRESS_LENGTH+1];
 } outstr;
 
 //volatile const char *outstr.fullAddress = outstr.outstr.fullAddress;
@@ -633,7 +634,7 @@ const bagl_element_t ui_details_blue[] = {
     /// TOP STATUS BAR
     {{BAGL_LABELINE, 0x01, 0, 45, 320, 30, 0, 0, BAGL_FILL, 0xFFFFFF, COLOR_APP,
       BAGL_FONT_OPEN_SANS_SEMIBOLD_10_13PX | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -671,7 +672,7 @@ const bagl_element_t ui_details_blue[] = {
 
     {{BAGL_LABELINE, 0x10, 30, 136, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -680,7 +681,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x11, 30, 159, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -689,7 +690,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x12, 30, 182, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -698,7 +699,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x13, 30, 205, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -707,7 +708,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x14, 30, 228, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -716,7 +717,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x15, 30, 251, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -725,7 +726,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x16, 30, 274, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -734,7 +735,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x17, 30, 297, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -743,7 +744,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x18, 30, 320, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -753,7 +754,7 @@ const bagl_element_t ui_details_blue[] = {
     //"..." at the end if too much
     {{BAGL_LABELINE, 0x19, 30, 343, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -780,9 +781,11 @@ const bagl_element_t *ui_details_blue_prepro(const bagl_element_t *element) {
     } else if (element->component.userid > 0) {
         unsigned int length = strlen(ui_details_content);
         if (length >= (element->component.userid & 0xF) * MAX_CHAR_PER_LINE) {
-            os_memset(outstr.addressSummary, 0, MAX_CHAR_PER_LINE + 1);
+            //os_memset(outstr.addressSummary, 0, MAX_CHAR_PER_LINE + 1);
+            os_memset(outstr.fullAddress, 0, MAX_CHAR_PER_LINE + 1);
             os_memmove(
-                outstr.addressSummary,
+                //outstr.addressSummary,
+                outstr.fullAddress,
                 ui_details_content +
                     (element->component.userid & 0xF) * MAX_CHAR_PER_LINE,
                 MIN(length -
@@ -1329,7 +1332,7 @@ const bagl_element_t ui_address_blue[] = {
 
     {{BAGL_LABELINE, 0x10, 30, 136, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -1338,7 +1341,7 @@ const bagl_element_t ui_address_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x11, 30, 159, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.addressSummary,
+     outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -1376,9 +1379,11 @@ unsigned int ui_address_blue_prepro(const bagl_element_t *element) {
     if (element->component.userid > 0) {
         unsigned int length = strlen(outstr.fullAddress);
         if (length >= (element->component.userid & 0xF) * MAX_CHAR_PER_LINE) {
-            os_memset(outstr.addressSummary, 0, MAX_CHAR_PER_LINE + 1);
+            //os_memset(outstr.addressSummary, 0, MAX_CHAR_PER_LINE + 1);
+            os_memset(outstr.fullAddress, 0, MAX_CHAR_PER_LINE + 1);
             os_memmove(
-                outstr.addressSummary,
+                //outstr.addressSummary,
+                outstr.fullAddress,
                 outstr.fullAddress +
                     (element->component.userid & 0xF) * MAX_CHAR_PER_LINE,
                 MIN(length -
@@ -1430,16 +1435,16 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
 
 const char *const ui_approval_details[][2] = {
     {"Fees", (const char*)maxFee},
-    {"Output 1 Amount", (const char*)outstr.fullAmount}, {"Output 1 Address", (const char*)outstr.addressSummary},
-    {"Output 2 Amount", (const char*)outstr.fullAmount}, {"Output 2 Address", (const char*)outstr.addressSummary},
-    {"Output 3 Amount", (const char*)outstr.fullAmount}, {"Output 3 Address", (const char*)outstr.addressSummary},
-    {"Output 4 Amount", (const char*)outstr.fullAmount}, {"Output 4 Address", (const char*)outstr.addressSummary},
-    {"Output 5 Amount", (const char*)outstr.fullAmount}, {"Output 5 Address", (const char*)outstr.addressSummary},
-    {"Output 6 Amount", (const char*)outstr.fullAmount}, {"Output 6 Address", (const char*)outstr.addressSummary},
-    {"Output 7 Amount", (const char*)outstr.fullAmount}, {"Output 7 Address", (const char*)outstr.addressSummary},
-    {"Output 8 Amount", (const char*)outstr.fullAmount}, {"Output 8 Address", (const char*)outstr.addressSummary},
-    {"Output 9 Amount", (const char*)outstr.fullAmount}, {"Output 9 Address", (const char*)outstr.addressSummary},
-    {"Output 10 Amount", (const char*)outstr.fullAmount}, {"Output 10 Address", (const char*)outstr.addressSummary},
+    {"Output 1 Amount", (const char*)outstr.fullAmount}, {"Output 1 Address", (const char*)outstr.fullAddress}, //addressSummary},
+    {"Output 2 Amount", (const char*)outstr.fullAmount}, {"Output 2 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {"Output 3 Amount", (const char*)outstr.fullAmount}, {"Output 3 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {"Output 4 Amount", (const char*)outstr.fullAmount}, {"Output 4 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {"Output 5 Amount", (const char*)outstr.fullAmount}, {"Output 5 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {"Output 6 Amount", (const char*)outstr.fullAmount}, {"Output 6 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {"Output 7 Amount", (const char*)outstr.fullAmount}, {"Output 7 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {"Output 8 Amount", (const char*)outstr.fullAmount}, {"Output 8 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {"Output 9 Amount", (const char*)outstr.fullAmount}, {"Output 9 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {"Output 10 Amount", (const char*)outstr.fullAmount}, {"Output 10 Address", (const char*)outstr.fullAddress},//addressSummary},
 };
 
 const bagl_element_t ui_approval_nanos[] = {
@@ -1589,13 +1594,14 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                             getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->addr.rcdhash,(uint8_t*)outstr.fullAddress, addresses_type[offset]);
                         }
 
-			os_memset((void*)outstr.addressSummary, 0, sizeof(outstr.addressSummary));
-                        os_memmove((void *)outstr.addressSummary, (void*)outstr.fullAddress, 7);
-                        os_memmove((void *)(outstr.addressSummary + 7), "..", 2);
-                        os_memmove((void *)(outstr.addressSummary + 9),
+			//os_memset((void*)outstr.addressSummary, 0, sizeof(outstr.addressSummary));
+                        //os_memmove((void *)outstr.addressSummary, (void*)outstr.fullAddress, 7);
+                        os_memmove((void *)(outstr.fullAddress + 7), "..", 2);
+                        os_memmove((void *)(outstr.fullAddress + 9),
                                    (void*)(outstr.fullAddress + strlen(outstr.fullAddress) - 4), 4);
-			if ( strcmp(outstr.addressSummary, "FA1zT4a..F2MC") == 0 ) {
-                            os_memmove((void *)(outstr.addressSummary), "Burn Address", strlen("Burn Address"));
+			outstr.fullAddress[13] = 0;
+			if ( strcmp(outstr.fullAddress, "FA1zT4a..F2MC") == 0 || strcmp(outstr.fullAddress, "EC2BURN..thin") ) {
+                            os_memmove((void *)(outstr.fullAddress), "Burn Address", strlen("Burn Address"));
 			}
                         goto display_detail;
                     }
@@ -1817,7 +1823,7 @@ const bagl_element_t ui_approval_nanos_ec[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)outstr.addressSummary,
+     (char*)outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -1873,7 +1879,7 @@ const bagl_element_t ui_approval_nanos_id[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)outstr.addressSummary,
+     (char*)outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -1930,7 +1936,7 @@ const bagl_element_t ui_approval_nanos_store_chainid[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)outstr.addressSummary,
+     (char*)outstr.fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -3035,7 +3041,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
     // "confirm", amount, address, ..., amount[n], address[n], fee
-    os_memset((void*)outstr.addressSummary, 0, sizeof(outstr.addressSummary));
+    os_memset((void*)outstr.fullAddress, 0, sizeof(outstr.fullAddress));
     os_memset((void*)outstr.fullAmount, 0, sizeof(outstr.fullAmount));
     for ( int i = 0; i < MAX_OUTPUTS; ++i )
     {
@@ -3097,7 +3103,7 @@ void handleStoreChainId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         THROW(BTCHIP_SW_INCORRECT_DATA);
     }
     os_memmove(&tmpCtx.chainidContext.chainId,workBuffer,32);
-    snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Store Chain ID?");
+    snprintf(outstr.fullAddress,sizeof(outstr.fullAddress)-1,"Store Chain ID?");
 
     ux_step_count = 0;
     ux_step = 0;
@@ -3192,7 +3198,7 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     //reset header check now that we have valid data
     tmpCtx.transactionContext.headervalid = 0;
 
-    snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign Data w/ID");
+    snprintf(outstr.fullAddress,sizeof(outstr.fullAddress)-1,"Sign Data w/ID");
 
     ux_step_count = 0;
     ux_step = 0;
@@ -3381,13 +3387,13 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     switch (msg.bip32Path[1])
     {
         case FACTOM_ID_TYPE:
-            snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign Data w/ID");
+            snprintf(outstr.fullAddress,sizeof(outstr.fullAddress),"Sign Data w/ID");
             break;
         case FCT_TYPE:
-            snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign w/FCT Addr");
+            snprintf(outstr.fullAddress,sizeof(outstr.fullAddress),"Sign w/FCT Addr");
             break;
         case EC_TYPE:
-            snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign w/EC Addr");
+            snprintf(outstr.fullAddress,sizeof(outstr.fullAddress),"Sign w/EC Addr");
 	    break;
         default:
             THROW(0x6B00);
@@ -3551,7 +3557,7 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
     // "confirm", amount, address, ..., amount[n], address[n], fee
-    os_memset((void*)outstr.addressSummary, 0, sizeof(outstr.addressSummary));
+    os_memset((void*)outstr.fullAddress, 0, sizeof(outstr.fullAddress));
     os_memset((void*)outstr.fullAmount, 0, sizeof(outstr.fullAmount));
     for ( int i = 0; i < MAX_OUTPUTS; ++i )
     {
@@ -3703,7 +3709,7 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             THROW(ret);
         }
 
-	snprintf(outstr.addressSummary,sizeof(outstr.addressSummary),"Sign Chain?");
+	snprintf(outstr.fullAddress,sizeof(outstr.fullAddress),"Sign Chain?");
         //os_memmove(pubkey.W,txCcContent.ecpubkey,pubkey.W_len);
 
     }
@@ -3719,26 +3725,13 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         }
 
         //os_memmove(pubkey.W,txEcContent.ecpubkey,pubkey.W_len);
-	snprintf((char*)outstr.addressSummary,sizeof(outstr.addressSummary),"Sign Entry?");
+	snprintf((char*)outstr.fullAddress,sizeof(outstr.fullAddress),"Sign Entry?");
 
     }
 
 
 
-#if WANT_REDUNDANT_DISPALY_OF_EC_ADDRESS
-    char addr[64];
-    os_memset((void *) addr, 0, sizeof(addr));
-    getFctAddressStringFromKey(&pubkey,addr,PUBLIC_OFFSET_EC);
-
-    os_memset((void *) outstr.addressSummary, 0, sizeof(outstr.addressSummary));
-    os_memmove((void *) outstr.addressSummary, addr, 7);
-    os_memmove((void *)(outstr.addressSummary + 7), "..", 2);
-    os_memmove((void *)(outstr.addressSummary + 9),
-                        addr + addressLength - 4, 4);
-    ux_step_count = 2; 
-#else
     ux_step_count = 0;
-#endif
     ux_step = 0;
 
 
