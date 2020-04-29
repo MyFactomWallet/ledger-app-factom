@@ -122,7 +122,7 @@ endif
 CC       := $(CLANGPATH)clang 
 
 #CFLAGS   += -O0
-CFLAGS   += -O3 -Os -I$(GCCPATH)/../arm-none-eabi/include/
+CFLAGS   += -O3 -Os -I$(GCCPATH)/../arm-none-eabi/include/ 
 
 AS     := $(GCCPATH)arm-none-eabi-gcc
 LD       := $(GCCPATH)arm-none-eabi-gcc

@@ -252,17 +252,19 @@ void initContent(txContent_t *content)
     content->header.ecpurchasecount = 0;
     content->header.fee = 0;
 
-//    for ( int i = 0; i < MAX_INPUT_ADDRESSES; ++i )
-//    {
-//        content->inputs[i].amt.value = 0;
-//        content->inputs[i].addr.rcdhash = NULL;
-//    }
+    for ( int i = 0; i < MAX_INPUT_ADDRESSES; ++i )
+    {
+        //content->inputs[i].amt.value = 0;
+        content->inputs[i].addr.rcdhash = NULL;
+        os_memset(&content->inputs[i].amt, 0, sizeof(content->outputs[i].amt));
+    }
 
 
     for ( int i = 0; i < MAX_OUTPUT_ADDRESSES; ++i )
     {
-        content->outputs[i].amt.value = 0;
         content->outputs[i].addr.rcdhash = NULL;
+        os_memset(&content->outputs[i].amt, 0, sizeof(content->outputs[i].amt));
+        //content->outputs[i].amt.value = 0;
     }
     for ( int i = 0; i < MAX_ECOUTPUT_ADDRESSES; ++i )
     {

@@ -7,7 +7,7 @@ SET(EXE_NAME fctparse)
 SET(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -fpermissive )
 SET(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -fpermissive )
 
-add_definitions(-DUSB_SEGMENT_SIZE=128 -DIO_HID_EP_LENGTH=128)
+add_definitions(-DUSB_SEGMENT_SIZE=128 -DIO_HID_EP_LENGTH=128 -DJSMN_STATIC=1)
 INCLUDE_DIRECTORIES("${PROJECT_BINARY_DIR}"
                     ../src/
                     $ENV{BOLOS_SDK}/include
@@ -23,7 +23,9 @@ ADD_EXECUTABLE(${EXE_NAME}
     main.c
     surrogate.c
     ../src/fatParse.c
-    ../src/fctParse.h
+    ../src/fatParse.h
+    ../src/PegnetParse.h
+    ../src/PegnetParse.c
     ../src/fctParse.c
     ../src/ecParse.h
     ../src/ecParse.c

@@ -7,6 +7,11 @@
 #include <stdio.h>
 
 
+void os_memset(void *dst, unsigned char c, unsigned int length)
+{
+    memset(dst,c,length);
+}
+
 const int8_t fcthex[] =   "02016253dfaa7301010087db406ff65cb9dd72a1e99bcd51da5e03b0ccafc237dbf1318a8d7438e22371c892d6868d20f02894db071e2eb38fdc56c697caaeba7dc19bddae2c6e7084cc3120d667b49f";//0155d679fb5b160f00cf5e5d34e5b1855e67e76317ebe35816cb34c86e25803ea90ac83d4011aebf93ee29e9a4b6860a1f023d84770341ae8ab3c2ac6cd9192edc42eb3ac6637badf46536545aebf8f083762bd4ac79ffb378726433020d149f06";
 const int8_t echex[] =    "00016227acddfe57cf6740c4f30ae39d71f75710fb4ea9c843d5c01755329a42ccab52034e1f7901d5b8efdb52a15c4007d341eb1193903a021ed7aaa9a3cf4234c32ef8a213de00";
 
@@ -96,9 +101,17 @@ int main ( int argc, char argv[] )
     //fprintf(stderr, "%s\n", out);
     //fprintf(stderr, "%ld\n", content.inputs[0].amt.value);
 
-    getFctAddressStringFromRCDHash(content.outputs[0].addr.rcdhash,out,PUBLIC_OFFSET_FCT);
-    fprintf(stderr, "%s\n", out);
-    fprintf(stderr, "%ld\n", content.outputs[0].amt.value);
+    if ( content.outputs[0].addr.rcdhash )
+    {
+        getFctAddressStringFromRCDHash(content.outputs[0].addr.rcdhash,out,PUBLIC_OFFSET_FCT);
+        fprintf(stderr, "%s\n", out);
+        fprintf(stderr, "%ld\n", content.outputs[0].amt.value);
+    }
+    else
+    {
+        fprintf(stderr,"Error: no output data parsed \n");
+    }
+
 
 
     char maxFee[256];
@@ -158,16 +171,43 @@ int main ( int argc, char argv[] )
     static const char *fat0tx =
        "3031353639353334303736888888d027c59579fc47a6fc6c4a5c0409c7c39bc38a86cb5fc00699784937627b22696e70757473223a7b22464132326465354e534732464132486d4d61443468387153415a414a797a746d6d6e77674c50676843514b6f53656b7759596374223a3135307d2c226f757470757473223a7b224641336e7235723534414b425a39534c414253334a79526f4763574d564d546b655057394d45434b4d3873684d6732704d61676e223a3135307d7d";
 
+    char inputaddress[56] = {0};
+
+    strcpy(inputaddress, "FA22de5NSG2FA2HmMaD4h8qSAZAJyztmmnwgLPghCQKoSekwYYct");
+
     bzero(data,sizeof(data));
     hextobin(data,fat0tx,strlen(fat0tx)/2);
 
 
-    char buf[256];
+    char buf[256] = {0};
+    char buf2[256] = {0};
+    char buf3[256] = {0};
 
-    int ret2 = parseFatTx(0,data, strlen(fat0tx)/2,&content);
+    int ret2 = parseFatTx(0,inputaddress, data, strlen(fat0tx)/2,&content);
 
     strncpy(buf, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
+
     printf("%s", buf);
+
+    if ( content.inputs[0].amt.fat.size )
+    {
+        strncpy(buf, content.inputs[0].addr.fctaddr, 52);
+        strncpy(buf2, content.inputs[0].amt.fat.entry, content.inputs[0].amt.fat.size);
+
+
+        fprintf(stderr,"Fat 0 input:  %s %s %s\n", buf, buf2, buf3);
+    }
+
+    if ( content.outputs[0].amt.fat.size )
+    {
+        strncpy(buf, content.outputs[0].addr.fctaddr, 52);
+        strncpy(buf2, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
+
+
+        fprintf(stderr,"Fat 0 output:  %s %s %s\n", buf, buf2, buf3);
+    }
+
+
     static const char *fat1tx =
     //"3031353730383438393139888888d027c59579fc47a6fc6c4a5c0409c7c39bc38a86cb5fc00699784937627b22696e70757473223a7b2246413251776d7a703478655852346a575972516e625053586935774c645648793870336b7341565376796a4c4558376a4533704e223a5b7b226d696e223a302c226d6178223a337d2c3135305d7d2c226f757470757473223a7b2246413361454370773367455a37434d5176524e7845744b42474b416f73333932326f71594c634851394e7158487564433659424d223a5b7b226d696e223a302c226d6178223a337d2c3135305d7d7d";
     "3031353731313637363230888888d027c59579fc47a6fc6c4a5c0409c7c39bc38a86cb5fc00699784937627b22696e70757473223a7b22464132326465354e534732464132486d4d61443468387153415a414a797a746d6d6e77674c50676843514b6f53656b7759596374223a5b31305d7d2c226f757470757473223a7b224641336e7235723534414b425a39534c414253334a79526f4763574d564d546b655057394d45434b4d3873684d6732704d61676e223a5b31305d7d2c226d65746164617461223a7b2274797065223a226661742d6a7320746573742072756e222c2274696d657374616d70223a313537313136373631393937307d7d";
@@ -175,13 +215,87 @@ int main ( int argc, char argv[] )
     ////"3031353731313636353032888888d027c59579fc47a6fc6c4a5c0409c7c39bc38a86cb5fc00699784937627b22696e70757473223a7b22464132326465354e534732464132486d4d61443468387153415a414a797a746d6d6e77674c50676843514b6f53656b7759596374223a5b31305d7d2c226f757470757473223a7b224641336e7235723534414b425a39534c414253334a79526f4763574d564d546b655057394d45434b4d3873684d6732704d61676e223a5b31305d7d2c226d65746164617461223a7b2274797065223a226661742d6a7320746573742072756e222c2274696d657374616d70223a313537313136363530313838367d7d";
 //"{"inputs":{"FA2Qwmzp4xeXR4jWYrQnbPSXi5wLdVHy8p3ksAVSvyjLEX7jE3pN":[{"min":0,"max":3},150]},"outputs""... (unknown length)
 
+    strcpy(inputaddress, "FA2Qwmzp4xeXR4jWYrQnbPSXi5wLdVHy8p3ksAVSvyjLEX7jE3pN");
     bzero(data,sizeof(data));
     hextobin(data,fat1tx,strlen(fat1tx)/2);
 
-    ret2=parseFatTx(1,data, strlen(fat1tx)/2,&content);
+    ret2=parseFatTx(1,inputaddress, data, strlen(fat1tx)/2,&content);
 
     strncpy(buf, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
     printf("%s", buf);
+
+    static const char *pegnettx = "{\"version\":1,\"transactions\":[{\"input\":{\"address\":\"FA2BRbu43H91VPYcGhEdjGXCbt6wGMojXSYDxEsa4GSNRC14Gaaz\",\"amount\":10000000000,\"type\":\"pFCT\"},\"conversion\":\"PEG\"}]}";
+
+    strcpy(inputaddress, "FA2BRbu43H91VPYcGhEdjGXCbt6wGMojXSYDxEsa4GSNRC14Gaaz");
+    ret2=parseFatTx(2,inputaddress, pegnettx, strlen(pegnettx),&content);
+    memset(buf,0,sizeof(buf));
+    memset(buf2,0,sizeof(buf2));
+    memset(buf3,0,sizeof(buf3));
+
+    if ( content.inputs[0].amt.fat.typesize )
+    {
+        if ( content.inputs[0].addr.fctaddr )
+        {
+            strncpy(buf, content.inputs[0].addr.fctaddr, 52);
+        }
+        strncpy(buf2, content.inputs[0].amt.fat.type, content.inputs[0].amt.fat.typesize);
+        strncpy(buf3, content.inputs[0].amt.fat.entry, content.inputs[0].amt.fat.size);
+
+
+        fprintf(stderr,"Pegnet input:  %s %s %s\n", buf, buf2, buf3);
+    }
+
+
+    if ( content.outputs[0].amt.fat.typesize && content.outputs[0].addr.fctaddr == NULL)
+    {
+        memset(buf,0,sizeof(buf));
+        memset(buf2,0,sizeof(buf2));
+        memset(buf3,0,sizeof(buf3));
+    //    strncpy(buf, content.outputs[0].addr.fctaddr, 52);
+
+        strncpy(buf2, content.outputs[0].amt.fat.type, content.outputs[0].amt.fat.typesize);
+
+        strncpy(buf3, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
+        fprintf(stderr, "conversion output: %s %s %s\n", buf, buf2, buf3);
+    }
+
+
+    static const char *pegnettx2 ="{\"version\":1,\"transactions\":[{\"input\":{\"address\":\"FA3hGHh2Jb1wtEd1jvwvaRM2LB6iB5ZNTVBXgEyhU8kaEeiDTES4\",\"amount\":200000000000,\"type\":\"PEG\"},\"transfers\":[{\"address\":\"FA3L6Q8ufbnmbN9yBZPFCNi4eVVzMqRJiuD3siEN6JTrmbRrviJu\",\"amount\":200000000000}]}]}";
+
+    strcpy(inputaddress, "FA3hGHh2Jb1wtEd1jvwvaRM2LB6iB5ZNTVBXgEyhU8kaEeiDTES4");
+    ret2=parseFatTx(2,pegnettx2, strlen(pegnettx2),&content);
+    fflush(stdout);
+
+    memset(buf,0,sizeof(buf));
+    strncpy(buf, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
+    printf("%s\n", buf);
+    fflush(stdout);
+
+    memset(buf,0,sizeof(buf));
+    memset(buf2,0,sizeof(buf2));
+    memset(buf3,0,sizeof(buf3));
+    if ( content.inputs[0].amt.fat.typesize )
+    {
+        strncpy(buf, content.inputs[0].addr.fctaddr, 52);
+        strncpy(buf2, content.inputs[0].amt.fat.type, content.inputs[0].amt.fat.typesize);
+        strncpy(buf3, content.inputs[0].amt.fat.entry, content.inputs[0].amt.fat.size);
+
+
+        fprintf(stderr,"Pegnet input:  %s %s %s\n", buf, buf2, buf3);
+    }
+
+    if ( content.outputs[0].amt.fat.typesize == 0 )
+    {
+        memset(buf,0,sizeof(buf));
+        memset(buf2,0,sizeof(buf2));
+        memset(buf3,0,sizeof(buf3));
+        strncpy(buf, content.outputs[0].addr.fctaddr, 52);
+
+    //    strncpy(buf2, content.outputs[0].amt.fat.type, content.outputs[0].amt.fat.typesize);
+
+        strncpy(buf3, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
+        fprintf(stderr, "transfer output: %s %s %s\n", buf, buf2, buf3);
+    }
 
     return 0;
 }

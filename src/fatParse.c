@@ -1,8 +1,9 @@
 #include "jsmn.h"
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "fatParse.h"
+#include "PegnetParse.h"
 
 int processFat1Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content);
 /*
@@ -40,31 +41,7 @@ static int jsonpartialeq(const int8_t *json, jsmntok_t *tok, const char *s) {
 const int MINIMUM_VIABILITY = 10;
 
 //JSMN_ERROR_PART ==
-enum faterr {
-     FAT_JSMN_ERROR_NOMEM = 1,
-  /* Invalid character inside JSON string */
-    FAT_JSMN_ERROR_INVAL = 2,
-  /* The string is not a full JSON packet, more bytes expected */
-    FAT_JSMN_ERROR_PART = 3,
-  /* Not enough tokens were provided */
-    FAT_ERROR_INPUT_EXPECTED = 4,
-  /* Invalid character inside JSON string */
-    FAT_INSUFFICIENT_IOM = 5,
-    FAT_ERROR_INPUT_OBJECT_EXPECTED = 6,
-    FAT_ERROR_INPUT_ADDRESS_EXPECTED = 7,
-    FAT_ERROR_INPUT_AMOUNT_EXPECTED = 8,
-    FAT_ERROR_INPUT_TOO_MANY_ADDRESS = 9,
-    FAT_ERROR_OUTPUT_OBJECT_EXPECTED = 10,
-    FAT_ERROR_OUTPUT_ADDRESS_EXPECTED = 11,
-    FAT_ERROR_OUTPUT_AMOUNT_EXPECTED = 12,
-    FAT_ERROR_OUTPUT_TOO_MANY_ADDRESS = 13,
-    FAT_ERROR_INVALID_FCT_ADDRESS = 14,
-    FAT_ERROR_JSON_OBJECT_NOT_FOUND = 15,
-    FAT_ERROR_INVALID_JSON = 16,
-    FAT_ERROR_UNSUPPORTED_FAT_TYPE = 17,
-  /* The string is not a full JSON packet, more bytes expected */
 
-};
 
 int processFat0Outputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length,txContent_t *content)
 {
@@ -264,12 +241,13 @@ int isSpace(char c)
     return 0;
 }
 
-int parseFatTxContent(int fattype, int8_t *d, uint32_t length, txContent_t *content)
+int parseFatTxContent(int fattype, char *inputaddress, int8_t *d, uint32_t length, txContent_t *content)
 {
     int8_t *de = d;
     uint8_t valid = 0;
     uint32_t i = 0;
     jsmntok_t *t = content->t.fat;
+    os_memset(content->t.fat, 0, sizeof(content->t.fat));
     int maxtokens = sizeof(content->t.fat)/sizeof(content->t.fat[0]);
 
     for(i = 0; i < length; ++i )
@@ -281,6 +259,7 @@ int parseFatTxContent(int fattype, int8_t *d, uint32_t length, txContent_t *cont
             {
                 if ( !isSpace(d[j]) )
                 {
+                    static char *ver   = "\"versi";
                     static char *input = "\"input";
                     static char *outpu = "\"outpu";
                     static char *metad = "\"metad";
@@ -291,7 +270,8 @@ int parseFatTxContent(int fattype, int8_t *d, uint32_t length, txContent_t *cont
 
                     if ( strncmp((char*)&d[j], input, strlen(input)) == 0 ||
                          strncmp((char*)&d[j], outpu, strlen(outpu)) == 0 ||
-                         strncmp((char*)&d[j], metad, strlen(metad)) == 0 )
+                         strncmp((char*)&d[j], metad, strlen(metad)) == 0 ||
+                         strncmp((char*)&d[j], ver, strlen(ver)) == 0 )
                     {
                         valid = 1;
                     }
@@ -346,11 +326,14 @@ int parseFatTxContent(int fattype, int8_t *d, uint32_t length, txContent_t *cont
     case 1:
         ret = processFat1Tx(r,t, de, length,content);
         break;
+    case 2:
+        ret = processPegTx(inputaddress, r,t, de, length,content);
+        break;
     default:
         ret = FAT_ERROR_UNSUPPORTED_FAT_TYPE ;
 
     };
-    return 0;
+    return ret;
 }
 
 int processFat1Outputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length,txContent_t *content)
@@ -467,7 +450,7 @@ int processFat1Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
 
 
         //convert to fatoshis
-        //db: test not storing inputs since we don't need them
+        //db: test not storing inputs since we don't need to show them?
         //content->inputs[content->header.inputcount].amt.fat.entry = (int8_t*)&d[t->start];
         //content->inputs[content->header.inputcount].amt.fat.size = t->end - t->start;//val * 100000000ul;
 
@@ -557,11 +540,11 @@ int processFat1Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *
 }
 
 
-int parseFatTx(int fattype, int8_t *d, uint32_t length,
+int parseFatTx(int fattype, char *inputaddress, int8_t *d, uint32_t length,
                        txContent_t *content) {
     int result = 0;
     initContent(content);
-    result = parseFatTxContent(fattype, d,length, content);
+    result = parseFatTxContent(fattype, inputaddress, d,length, content);
     return result;
             /*
     BEGIN_TRY {

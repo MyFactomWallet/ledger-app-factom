@@ -26,7 +26,7 @@
 #undef JSMN_HEADER
 
 #define MAX_BIP32_PATH 10
-#define MAX_INPUT_ADDRESSES 10
+#define MAX_INPUT_ADDRESSES 1
 #define MAX_OUTPUT_ADDRESSES 10
 #define MAX_ECOUTPUT_ADDRESSES 10
 
@@ -47,8 +47,10 @@ typedef struct txContentHeader_t {
 } txContentHeader_t;
 
 typedef struct txFatAmount_t {
-    uint32_t size;
+    uint8_t size;
+    uint8_t typesize;
     int8_t *entry;
+    int8_t *type;
 } txFatAmount_t;
 
 typedef struct txContentAddress_t {
@@ -78,11 +80,12 @@ typedef struct txContentAddress_t {
 typedef struct txContent_t {
     txContentHeader_t header;
     uint64_t fees;
-    //txContentAddress_t inputs[MAX_INPUT_ADDRESSES];
+    txContentAddress_t inputs[MAX_INPUT_ADDRESSES];
     txContentAddress_t outputs[MAX_OUTPUT_ADDRESSES];
     union {
         txContentAddress_t ecpurchase[MAX_ECOUTPUT_ADDRESSES];
-        jsmntok_t fat[76]; /* We expect no more than 128 tokens */
+        jsmntok_t fat[64]; /* We expect no more than 128 tokens */
+        //jsmntok_t fat[42]; /* We expect no more than 128 tokens */
     } t;
 } txContent_t;
 

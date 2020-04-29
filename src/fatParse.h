@@ -4,8 +4,42 @@
 #include "fctParse.h"
 
 //int toString(char a[], int len);
+enum faterr {
+     FAT_JSMN_ERROR_NOMEM = 1,
+  /* Invalid character inside JSON string */
+    FAT_JSMN_ERROR_INVAL = 2,
+  /* The string is not a full JSON packet, more bytes expected */
+    FAT_JSMN_ERROR_PART = 3,
+  /* Not enough tokens were provided */
+    FAT_ERROR_INPUT_EXPECTED = 4,
+  /* Invalid character inside JSON string */
+    FAT_INSUFFICIENT_IOM = 5,
+    FAT_ERROR_INPUT_OBJECT_EXPECTED = 6,
+    FAT_ERROR_INPUT_ADDRESS_EXPECTED = 7,
+    FAT_ERROR_INPUT_AMOUNT_EXPECTED = 8,
+    FAT_ERROR_INPUT_TOO_MANY_ADDRESS = 9,
+    FAT_ERROR_OUTPUT_OBJECT_EXPECTED = 10,
+    FAT_ERROR_OUTPUT_ADDRESS_EXPECTED = 11,
+    FAT_ERROR_OUTPUT_AMOUNT_EXPECTED = 12,
+    FAT_ERROR_OUTPUT_TOO_MANY_ADDRESS = 13,
+    FAT_ERROR_INVALID_FCT_ADDRESS = 14,
+    FAT_ERROR_JSON_OBJECT_NOT_FOUND = 15,
+    FAT_ERROR_INVALID_JSON = 16,
+    FAT_ERROR_UNSUPPORTED_FAT_TYPE = 17,
+    FAT_ERROR_VERSION_EXPECTED = 18,
+    FAT_ERROR_TRANSACTION_ARRAY_EXPECTED = 19,
+    FAT_ERROR_TRANSACTION_OBJECT_EXPECTED = 20,
+    FAT_ERROR_TRANSACTION_PEGTYPE_EXPECTED = 21,
 
-int parseFatTx(int fattype, int8_t *data, uint32_t length,
+    FAT_ERROR_TRANSACTION_CONVERSION_TYPE_EXPECTED = 22,
+    FAT_ERROR_TRANSACTION_SPECIFIED_CONVERSION_ALREADY_SPECIFIED = 23,
+    FAT_ERROR_TRANSACTION_SPECIFIED_TRANSFER_ALREADY_SPECIFIED = 23,
+    FAT_ERROR_TRANSACTION_SPECIFIED_CONVERSION_AND_TRANSFER_SPECIFIED = 24,
+    FAT_ERROR_UNSUPPORTED_VERSION = 25,
+  /* The string is not a full JSON packet, more bytes expected */
+
+};
+int parseFatTx(int fattype, char *inputaddress, int8_t *data, uint32_t length,
                        txContent_t *content) ;
 
 #endif

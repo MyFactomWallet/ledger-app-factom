@@ -97,6 +97,7 @@ uint32_t set_result_get_publicKey(void);
 #define OFFSET_CDATA 5
 
 //max transaction can be the header + 10 inputs + 10 outputs
+#define MAX_INPUTS 1
 #define MAX_OUTPUTS 10
 #define TX_HEADER_SIZE (1+6+3)
 #define TX_MAX_AMT_ADDR_SIZE (8+32)
@@ -187,23 +188,26 @@ volatile txContent_t txContent;
 volatile uint8_t batchModeEnabled = 0;
 volatile uint8_t dataAllowed;
 volatile char confirm_string[16];
+volatile char txn_type_string[16];
 volatile char maxFee[16];
 volatile short listidx;
 
-struct {
+//struct {
     volatile char fullAddress[FCT_ADDRESS_LENGTH+1];
 //    volatile char addressSummary[16];
     volatile char fullAmount[FCT_ADDRESS_LENGTH+1];
-} outstr;
+    volatile char dispamt[18];
+    volatile char dispaddr[18];
+//} outstr;
 
-//volatile const char *outstr.fullAddress = outstr.outstr.fullAddress;
-//volatile const char *outstr.addressSummary = outstr.outstr.addressSummary;
-//volatile const char *outstr.fullAmount = outstr.outstr.fullAmount;
+//volatile const char *fullAddress = fullAddress;
+//volatile const char *addressSummary = addressSummary;
+//volatile const char *fullAmount = fullAmount;
 
 volatile bool dataPresent;
 volatile bool skipWarning;
-volatile uint8_t addresses_type[MAX_OUTPUTS];
-volatile txContentAddress_t *addresses[MAX_OUTPUTS];
+volatile uint8_t addresses_type[MAX_OUTPUTS+MAX_INPUTS];
+volatile txContentAddress_t *addresses[MAX_OUTPUTS+MAX_INPUTS];
 
 bagl_element_t tmp_element;
 
@@ -597,7 +601,7 @@ unsigned int ui_settings_blue_button(unsigned int button_mask,
 #endif // #if defined(TARGET_BLUE)
 
 #if defined(TARGET_BLUE)
-// reuse outstr.addressSummary for each line content
+// reuse addressSummary for each line content
 const char *ui_details_title;
 const char *ui_details_content;
 typedef void (*callback_t)(void);
@@ -634,7 +638,7 @@ const bagl_element_t ui_details_blue[] = {
     /// TOP STATUS BAR
     {{BAGL_LABELINE, 0x01, 0, 45, 320, 30, 0, 0, BAGL_FILL, 0xFFFFFF, COLOR_APP,
       BAGL_FONT_OPEN_SANS_SEMIBOLD_10_13PX | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -672,7 +676,7 @@ const bagl_element_t ui_details_blue[] = {
 
     {{BAGL_LABELINE, 0x10, 30, 136, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -681,7 +685,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x11, 30, 159, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -690,7 +694,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x12, 30, 182, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -699,7 +703,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x13, 30, 205, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -708,7 +712,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x14, 30, 228, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -717,7 +721,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x15, 30, 251, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -726,7 +730,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x16, 30, 274, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -735,7 +739,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x17, 30, 297, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -744,7 +748,7 @@ const bagl_element_t ui_details_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x18, 30, 320, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -754,7 +758,7 @@ const bagl_element_t ui_details_blue[] = {
     //"..." at the end if too much
     {{BAGL_LABELINE, 0x19, 30, 343, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -781,11 +785,11 @@ const bagl_element_t *ui_details_blue_prepro(const bagl_element_t *element) {
     } else if (element->component.userid > 0) {
         unsigned int length = strlen(ui_details_content);
         if (length >= (element->component.userid & 0xF) * MAX_CHAR_PER_LINE) {
-            //os_memset(outstr.addressSummary, 0, MAX_CHAR_PER_LINE + 1);
-            os_memset(outstr.fullAddress, 0, MAX_CHAR_PER_LINE + 1);
+            //os_memset(addressSummary, 0, MAX_CHAR_PER_LINE + 1);
+            os_memset(fullAddress, 0, MAX_CHAR_PER_LINE + 1);
             os_memmove(
-                //outstr.addressSummary,
-                outstr.fullAddress,
+                //addressSummary,
+                fullAddress,
                 ui_details_content +
                     (element->component.userid & 0xF) * MAX_CHAR_PER_LINE,
                 MIN(length -
@@ -963,7 +967,7 @@ const bagl_element_t ui_approval_blue[] = {
      0,
      NULL,
      NULL,
-     NULL}, // outstr.fullAmount
+     NULL}, // fullAmount
     {{BAGL_LABELINE, 0x20, 284, 196, 6, 16, 0, 0, BAGL_FILL, 0x999999,
       COLOR_BG_1, BAGL_FONT_SYMBOLS_0 | BAGL_FONT_ALIGNMENT_RIGHT, 0},
      BAGL_FONT_SYMBOLS_0_MINIRIGHT,
@@ -1021,7 +1025,7 @@ const bagl_element_t ui_approval_blue[] = {
      0,
      NULL,
      NULL,
-     NULL}, // outstr.fullAddress
+     NULL}, // fullAddress
     {{BAGL_LABELINE, 0x21, 284, 245, 6, 16, 0, 0, BAGL_FILL, 0x999999,
       COLOR_BG_1, BAGL_FONT_SYMBOLS_0 | BAGL_FONT_ALIGNMENT_RIGHT, 0},
      BAGL_FONT_SYMBOLS_0_MINIRIGHT,
@@ -1332,7 +1336,7 @@ const bagl_element_t ui_address_blue[] = {
 
     {{BAGL_LABELINE, 0x10, 30, 136, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -1341,7 +1345,7 @@ const bagl_element_t ui_address_blue[] = {
      NULL},
     {{BAGL_LABELINE, 0x11, 30, 159, 260, 30, 0, 0, BAGL_FILL, 0x000000,
       COLOR_BG_1, BAGL_FONT_OPEN_SANS_REGULAR_10_13PX, 0},
-     outstr.fullAddress, //addressSummary,
+     fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -1377,14 +1381,14 @@ const bagl_element_t ui_address_blue[] = {
 
 unsigned int ui_address_blue_prepro(const bagl_element_t *element) {
     if (element->component.userid > 0) {
-        unsigned int length = strlen(outstr.fullAddress);
+        unsigned int length = strlen(fullAddress);
         if (length >= (element->component.userid & 0xF) * MAX_CHAR_PER_LINE) {
-            //os_memset(outstr.addressSummary, 0, MAX_CHAR_PER_LINE + 1);
-            os_memset(outstr.fullAddress, 0, MAX_CHAR_PER_LINE + 1);
+            //os_memset(addressSummary, 0, MAX_CHAR_PER_LINE + 1);
+            os_memset(fullAddress, 0, MAX_CHAR_PER_LINE + 1);
             os_memmove(
-                //outstr.addressSummary,
-                outstr.fullAddress,
-                outstr.fullAddress +
+                //addressSummary,
+                fullAddress,
+                fullAddress +
                     (element->component.userid & 0xF) * MAX_CHAR_PER_LINE,
                 MIN(length -
                         (element->component.userid & 0xF) * MAX_CHAR_PER_LINE,
@@ -1435,16 +1439,37 @@ unsigned int ui_address_nanos_button(unsigned int button_mask,
 
 const char *const ui_approval_details[][2] = {
     {"Fees", (const char*)maxFee},
-    {"Output 1 Amount", (const char*)outstr.fullAmount}, {"Output 1 Address", (const char*)outstr.fullAddress}, //addressSummary},
-    {"Output 2 Amount", (const char*)outstr.fullAmount}, {"Output 2 Address", (const char*)outstr.fullAddress},//addressSummary},
-    {"Output 3 Amount", (const char*)outstr.fullAmount}, {"Output 3 Address", (const char*)outstr.fullAddress},//addressSummary},
-    {"Output 4 Amount", (const char*)outstr.fullAmount}, {"Output 4 Address", (const char*)outstr.fullAddress},//addressSummary},
-    {"Output 5 Amount", (const char*)outstr.fullAmount}, {"Output 5 Address", (const char*)outstr.fullAddress},//addressSummary},
-    {"Output 6 Amount", (const char*)outstr.fullAmount}, {"Output 6 Address", (const char*)outstr.fullAddress},//addressSummary},
-    {"Output 7 Amount", (const char*)outstr.fullAmount}, {"Output 7 Address", (const char*)outstr.fullAddress},//addressSummary},
-    {"Output 8 Amount", (const char*)outstr.fullAmount}, {"Output 8 Address", (const char*)outstr.fullAddress},//addressSummary},
-    {"Output 9 Amount", (const char*)outstr.fullAmount}, {"Output 9 Address", (const char*)outstr.fullAddress},//addressSummary},
-    {"Output 10 Amount", (const char*)outstr.fullAmount}, {"Output 10 Address", (const char*)outstr.fullAddress},//addressSummary},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    /*
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},
+    {(const char*)dispamt, (const char*)fullAmount}, {(const char*)dispaddr, (const char*)fullAddress},*/
+    /*{"Output 2 Amount", (const char*)fullAmount}, {"Output 2 Address", (const char*)fullAddress},
+    {"Output 3 Amount", (const char*)fullAmount}, {"Output 3 Address", (const char*)fullAddress},
+    {"Output 4 Amount", (const char*)fullAmount}, {"Output 4 Address", (const char*)fullAddress},
+    {"Output 5 Amount", (const char*)fullAmount}, {"Output 5 Address", (const char*)fullAddress},
+    {"Output 6 Amount", (const char*)fullAmount}, {"Output 6 Address", (const char*)fullAddress},
+    {"Output 7 Amount", (const char*)fullAmount}, {"Output 7 Address", (const char*)fullAddress},
+    {"Output 8 Amount", (const char*)fullAmount}, {"Output 8 Address", (const char*)fullAddress},
+    {"Output 9 Amount", (const char*)fullAmount}, {"Output 9 Address", (const char*)fullAddress},
+    {"Output 10 Amount", (const char*)fullAmount}, {"Output 10 Address", (const char*)fullAddress},*/
+ /*   {"Output 1 Amount", (const char*)fullAmount}, {"Output 1 Address", (const char*)fullAddress},
+    {"Output 2 Amount", (const char*)fullAmount}, {"Output 2 Address", (const char*)fullAddress},
+    {"Output 3 Amount", (const char*)fullAmount}, {"Output 3 Address", (const char*)fullAddress},
+    {"Output 4 Amount", (const char*)fullAmount}, {"Output 4 Address", (const char*)fullAddress},
+    {"Output 5 Amount", (const char*)fullAmount}, {"Output 5 Address", (const char*)fullAddress},
+    {"Output 6 Amount", (const char*)fullAmount}, {"Output 6 Address", (const char*)fullAddress},
+    {"Output 7 Amount", (const char*)fullAmount}, {"Output 7 Address", (const char*)fullAddress},
+    {"Output 8 Amount", (const char*)fullAmount}, {"Output 8 Address", (const char*)fullAddress},
+    {"Output 9 Amount", (const char*)fullAmount}, {"Output 9 Address", (const char*)fullAddress},
+    {"Output 10 Amount", (const char*)fullAmount}, {"Output 10 Address", (const char*)fullAddress},*/
 };
 
 const bagl_element_t ui_approval_nanos[] = {
@@ -1493,7 +1518,7 @@ const bagl_element_t ui_approval_nanos[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "transaction",
+     txn_type_string,
      0,
      0,
      0,
@@ -1512,7 +1537,7 @@ const bagl_element_t ui_approval_nanos[] = {
      NULL},
     {{BAGL_LABELINE, 0x12, 23, 26, 82, 12, 0x80 | 10, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 26},
-     NULL, //(char *)outstr.fullAmount,
+     NULL, //(char *)fullAmount,
      0,
      0,
      0,
@@ -1524,6 +1549,7 @@ const bagl_element_t ui_approval_nanos[] = {
 
 unsigned int ui_approval_prepro(const bagl_element_t *element) {
     unsigned int display = 1;
+    unsigned int rdisplay = 0;
     uint8_t offset = 0;
     int havemoore = 0;
     if (element->component.userid > 0) {
@@ -1545,6 +1571,7 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                     if ( strlen(maxFee) != 0 )
                     {
                         display = 0;
+                        rdisplay = 0;
                         goto display_detail;
                     }
 		    else
@@ -1554,60 +1581,100 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
 		    }
 
                 case 1: // amount
+
                     offset = 0;
                     display_amount_offset:
                     if ( addresses[offset] )
                     {
                         if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT )
                         {
-                            //fct_print_amount(addresses[offset]->amt.value,(int8_t*)outstr.fullAmount,sizeof(outstr.fullAmount));
-                            int size = addresses[offset]->amt.fat.size<sizeof(outstr.fullAmount)?addresses[offset]->amt.fat.size:(sizeof(outstr.fullAmount)-1);
-                            strncpy((int8_t*)outstr.fullAmount, addresses[offset]->amt.fat.entry, size);
+
+                            os_memset((void*)dispamt,0, sizeof(dispamt));
+                            snprintf(dispamt,sizeof(dispamt),"FAT Output %d Amt",offset);
+                            //fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
+                            int size = addresses[offset]->amt.fat.size<sizeof(fullAmount)?addresses[offset]->amt.fat.size:(sizeof(fullAmount)-1);
+                            if ( size )
+                            {
+                                strncpy((int8_t*)fullAmount, addresses[offset]->amt.fat.entry, size);
+                            } 
+                    //        snprintf(dispamt,sizeof(dispamt),"amr%d",addresses[offset]->amt.fat.entry);
+                             //   fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
+                            //pegnet transaction
+                            if ( addresses[offset]->amt.fat.typesize )
+                            {
+                                snprintf(dispamt,sizeof(dispamt),"PEG Input %d Amt",offset);
+                                //strncpy(buf, content.inputs[0].addr.fctaddr, 52);
+                                //strncpy(buf2, content.inputs[0].amt.fat.type, content.inputs[0].amt.fat.typesize);
+                                //strncpy(buf3, content.inputs[0].amt.fat.entry, content.inputs[0].amt.fat.size);
+
+                                //fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
+
+                                //fprintf(stderr,"Pegnet input:  %s %s %s\n", buf, buf2, buf3);
+                            }
+
                         }
                         else
                         {
+                            os_memset((void*)dispamt,0, sizeof(dispamt));
+                            snprintf(dispamt,sizeof(dispamt),"Output %d Amount",offset);
 			    if ( addresses[offset]->amt.value == 0 )
 			    {
-                                strcpy(outstr.fullAmount, "FCT 0");
-                                goto display_address_offset;
+                                strcpy(fullAmount, "FCT BURN FEE");
+                                //goto display_address_offset;
                             }
 			    else
 			    {
-                                fct_print_amount(addresses[offset]->amt.value,(int8_t*)outstr.fullAmount,sizeof(outstr.fullAmount));
+                                fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
 			    }
                         }
 
+                        rdisplay = 1;
                         goto display_detail;
                     }
                 case 2: // address
                     offset = 0;
                     display_address_offset:
+                    //display = 2;
                     if ( addresses[offset] )
                     {
-			os_memset((void*)outstr.fullAddress, 0, sizeof(outstr.fullAddress));
+                        os_memset((void*)dispaddr,0, sizeof(dispaddr));
+                        os_memset((void*)fullAddress, 0, sizeof(fullAddress));
+
                         if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT)
                         {
-                            strncpy(outstr.fullAddress,addresses[offset]->addr.fctaddr,52);
+				
+                            snprintf(dispaddr,sizeof(dispaddr),"Fatout %d Addr",offset);
+			    strncpy(fullAddress,"FA2ybgFNYQiZFgTjkwQwp74uGsEUHJc6hGEh4YA3ai7FcssemapP",strlen("FA2ybgFNYQiZFgTjkwQwp74uGsEUHJc6hGEh4YA3ai7FcssemapP"));
+			    
+/*                            if ( addresses[offset]->addr.fctaddr )
+                            {
+                                snprintf(dispaddr,sizeof(dispaddr),"Fatout %d Address",offset);
+                                strncpy(fullAddress,addresses[offset]->addr.fctaddr,52);
+                            } */
                         }
                         else
                         {
-                            getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->addr.rcdhash,(uint8_t*)outstr.fullAddress, addresses_type[offset]);
+                            snprintf(dispaddr,sizeof(dispaddr),"Output %d Address",offset);
+                            getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->addr.rcdhash,(uint8_t*)fullAddress, addresses_type[offset]);
                         }
 
-			//os_memset((void*)outstr.addressSummary, 0, sizeof(outstr.addressSummary));
-                        //os_memmove((void *)outstr.addressSummary, (void*)outstr.fullAddress, 7);
-                        os_memmove((void *)(outstr.fullAddress + 7), "..", 2);
-                        os_memmove((void *)(outstr.fullAddress + 9),
-                                   (void*)(outstr.fullAddress + strlen(outstr.fullAddress) - 4), 4);
-			outstr.fullAddress[13] = 0;
-			if ( strcmp(outstr.fullAddress, "FA1zT4a..F2MC") == 0 || strcmp(outstr.fullAddress, "EC2BURN..thin") ) {
-                            os_memmove((void *)(outstr.fullAddress), "Burn Address", strlen("Burn Address"));
-			}
+                        //os_memset((void*)addressSummary, 0, sizeof(addressSummary));
+                        //os_memmove((void *)addressSummary, (void*)fullAddress, 7);
+                        os_memmove((void *)(fullAddress + 7), "..", 2);
+                        os_memmove((void *)(fullAddress + 9),
+                                   (void*)(fullAddress + strlen(fullAddress) - 4), 4);
+                        fullAddress[13] = 0;
+//                        if ( strcmp(fullAddress, "FA1zT4a..F2MC") == 0 || strcmp(fullAddress, "EC2BURN..thin") ) {
+//                            os_memset((void*)fullAddress,0,sizeof(fullAddress));
+//                            os_memmove((void *)(fullAddress), "Burn Address", strlen("Burn Address"));
+//			}
+
+                        rdisplay = 2;
                         goto display_detail;
                     }
                 display_detail:
                     tmp_element.text =
-                        ui_approval_details[display]
+                        ui_approval_details[rdisplay]
                                            [(element->component.userid) >> 4];
                     break;
                 case 3:
@@ -1823,7 +1890,7 @@ const bagl_element_t ui_approval_nanos_ec[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)outstr.fullAddress, //addressSummary,
+     (char*)fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -1879,7 +1946,7 @@ const bagl_element_t ui_approval_nanos_id[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)outstr.fullAddress, //addressSummary,
+     (char*)fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -1936,7 +2003,7 @@ const bagl_element_t ui_approval_nanos_store_chainid[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     (char*)outstr.fullAddress, //addressSummary,
+     (char*)fullAddress, //addressSummary,
      0,
      0,
      0,
@@ -2186,8 +2253,8 @@ UX_STEP_NOCB(
     ux_variable_display, 
     bnnn_paging,
     {
-      .title = outstr.fullAmount,
-      .text = outstr.fullAddress
+      .title = fullAmount,
+      .text = fullAddress
     });
 UX_STEP_INIT(
     ux_init_lower_border,
@@ -2220,7 +2287,7 @@ UX_STEP_VALID(
       &C_icon_crossmark,
       "Reject",
     });
-// confirm_full: confirm transaction / Amount: outstr.fullAmount / Address: outstr.fullAddress / Fees: feesAmount
+// confirm_full: confirm transaction / Amount: fullAmount / Address: fullAddress / Fees: feesAmount
 UX_FLOW(ux_confirm_full_flow,
   &ux_confirm_full_flow_1_step,
   &ux_init_upper_border,
@@ -2245,15 +2312,15 @@ void set_state_data() {
     {
         case STATE_AMOUNT:
             // set amount
-            strcpy(outstr.fullAmount, "Amount");
-            fct_print_amount(addresses[current_output]->amt.value,(int8_t*)outstr.fullAddress,sizeof(outstr.fullAddress));
+            strcpy(fullAmount, "Amount");
+            fct_print_amount(addresses[current_output]->amt.value,(int8_t*)fullAddress,sizeof(fullAddress));
             break;
 
         case STATE_ADDRESS:
             // set destination address
-            strcpy(outstr.fullAmount, "Destination");
-            os_memset((void*)outstr.fullAddress, 0, sizeof(outstr.fullAddress));
-            getFctAddressStringFromRCDHash((uint8_t*)addresses[current_output]->addr.rcdhash,(uint8_t*)outstr.fullAddress, addresses_type[current_output]);
+            strcpy(fullAmount, "Destination");
+            os_memset((void*)fullAddress, 0, sizeof(fullAddress));
+            getFctAddressStringFromRCDHash((uint8_t*)addresses[current_output]->addr.rcdhash,(uint8_t*)fullAddress, addresses_type[current_output]);
             break;
     
         default:
@@ -2429,6 +2496,7 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
     {
         rawTx = tmpCtx.transactionContext.hashCtx.sha512.hash;
         rawTxLength = sizeof(tmpCtx.transactionContext.hashCtx.sha512.hash);
+	//goto igiveup;
     }
     //store signature in 35..97
     signatureLength = cx_eddsa_sign(&privateKey, CX_LAST, CX_SHA512,
@@ -2437,22 +2505,14 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
 			    NULL, 0,
                             &G_io_apdu_buffer[35], sizeof(G_io_apdu_buffer)-35, NULL);
 
-    cx_ecfp_generate_pair(CX_CURVE_Ed25519,
-                         &tmpCtx.publicKeyContext.publicKey,
-                         &privateKey, 1);
-
-    os_memset(&privateKey, 0, sizeof(privateKey));
 
     //return length of signature in 33..34, should be 64
     G_io_apdu_buffer[33] = (uint8_t)(signatureLength >> 8);
     G_io_apdu_buffer[34] = (uint8_t)(signatureLength);
     signatureLength += 2; 
 
-    //Return RCD in 0..32 //33
-    getCompressedPublicKeyWithRCD(&tmpCtx.publicKeyContext.publicKey,
-                               G_io_apdu_buffer, 33);
+    //account for the fact we start at byte 33.
     signatureLength+=33;
-
 
     if ( addresses_type[0] == PUBLIC_OFFSET_FCT_FAT )
     {
@@ -2461,7 +2521,18 @@ unsigned int io_seproxyhal_touch_tx_ok(const bagl_element_t *e)
         signatureLength += rawTxLength;
     }
 
+    cx_ecfp_generate_pair(CX_CURVE_Ed25519,
+                         &tmpCtx.publicKeyContext.publicKey,
+                         &privateKey, 1);
+    os_memset(&privateKey, 0, sizeof(privateKey));
 
+    //Return RCD in 0..32 //33
+    //now get the key and set that as the first 33 bytes returned.
+    getCompressedPublicKeyWithRCD(&tmpCtx.publicKeyContext.publicKey,
+                               G_io_apdu_buffer, 33);
+
+
+//igiveup:
     //append success 
     G_io_apdu_buffer[signatureLength++] = 0x90;
     G_io_apdu_buffer[signatureLength++] = 0x00;
@@ -2634,8 +2705,8 @@ void ui_approval_transaction_blue_init(void) {
     ui_approval_blue_cancel =
         (bagl_element_callback_t)io_seproxyhal_touch_tx_cancel;
     G_ui_approval_blue_state = APPROVAL_TRANSACTION;
-    ui_approval_blue_values[0] = outstr.fullAmount;
-    ui_approval_blue_values[1] = outstr.fullAddress;
+    ui_approval_blue_values[0] = fullAmount;
+    ui_approval_blue_values[1] = fullAddress;
     ui_approval_blue_values[2] = maxFee;
     ui_approval_blue_init();
 }
@@ -2774,6 +2845,62 @@ void convertUint256BE(uint8_t *data, uint32_t length, uint256_t *target) {
     readu256BE(tmp, target);
 }
 
+int getFctPublicKey(uint32_t *bip32path[], uint32_t bip32pathsize, uint8_t *pubkey, uint32_t pubkeysize, uint8_t *chaincode, uint32_t chaincodesize )
+{
+
+    uint8_t privateKeyData[32];
+    cx_ecfp_public_key_t publicKey;
+    cx_ecfp_private_key_t privateKey;
+    keyType_t keytype = PUBLIC_OFFSET_FCT;
+
+    if ( (uint8_t)bip32path[1] == 0x84 )
+    {
+        keytype = PUBLIC_OFFSET_EC;
+    }
+    else if ( (uint32_t)bip32path[1] == FACTOM_ID_TYPE )
+    {
+        keytype = PUBLIC_OFFSET_ID;
+    }
+
+
+    os_perso_derive_node_bip32(CX_CURVE_256K1,
+                               bip32path, bip32pathsize,
+                               privateKeyData,
+                               (chaincodesize
+                                    ? chaincode
+                                    : NULL));
+
+    cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
+    os_memset(privateKeyData, 0, sizeof(privateKeyData));
+
+    //generate the public / private key pair.  i
+    cx_ecfp_generate_pair(CX_CURVE_Ed25519, &publicKey, &privateKey, 1);
+    os_memset(&privateKey, 0, sizeof(privateKey));
+
+    if ( keytype == PUBLIC_OFFSET_FCT )
+    {
+        if ( pubkeysize != 33 )
+        {
+            return -1;
+        }
+        //The public key generated is 64 bytes not 32, so compress it
+        //and convert to an rcd
+        getCompressedPublicKeyWithRCD(&publicKey, pubkey, sizeof(pubkeysize));
+    }
+    else if ( keytype == PUBLIC_OFFSET_EC || keytype == PUBLIC_OFFSET_ID )
+    {
+        if ( pubkeysize != 32 )
+        {
+            return -1;
+        }
+
+        getCompressedPublicKey(&publicKey,
+                                   pubkey, pubkeysize);
+    }
+
+    return 0;
+}
+
 void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
                         uint16_t dataLength, 
                         volatile unsigned int *flags,
@@ -2821,7 +2948,28 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     os_memset(&tmpCtx, 0, sizeof(tmpCtx));
 
     tmpCtx.publicKeyContext.getChaincode = (p2 == P2_CHAINCODE);
-    os_perso_derive_node_bip32(CX_CURVE_256K1, 
+
+#if 0
+    os_memset(tmpCtx.publicKeyContext.publicKey.W, 0, 65);
+
+    tmpCtx.publicKeyContext.publicKey.W_len = 33; //default to FCT RCD length
+
+    if ( keytype == PUBLIC_OFFSET_EC || keytype == PUBLIC_OFFSET_ID )
+    {
+        tmpCtx.publicKeyContext.publicKey.W_len = 32;
+    }
+
+    int ret = getFctPublicKey(bip32Path, sizeof(bip32Path),
+                              tmpCtx.publicKeyContext.publicKey.W, tmpCtx.publicKeyContext.publicKey.W_len,
+                              tmpCtx.publicKeyContext.getChaincode ? tmpCtx.publicKeyContext.chainCode : NULL,
+                              tmpCtx.publicKeyContext.getChaincode ? sizeof(tmpCtx.publicKeyContext.chainCode) : 0 );
+    if ( ret )
+    {
+        os_memset(&tmpCtx.publicKeyContext, 0, sizeof(tmpCtx.publicKeyContext));
+        THROW(0x6B01);
+    }
+#else
+    os_perso_derive_node_bip32(CX_CURVE_256K1,
 		               bip32Path, bip32PathLength,
                                privateKeyData,
                                (tmpCtx.publicKeyContext.getChaincode
@@ -2860,6 +3008,8 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         tmpCtx.publicKeyContext.publicKey.W_len = sizeof(key);
         os_memmove(tmpCtx.publicKeyContext.publicKey.W, key,sizeof(key));
     }
+#endif
+
 
     tmpCtx.publicKeyContext.getidentity = ( keytype == PUBLIC_OFFSET_ID ) ? 0x01 : 0x00;
 
@@ -2878,12 +3028,12 @@ void handleGetPublicKey(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         // prepare for a UI based reply
         skipWarning = false;
 #if defined(TARGET_BLUE)
-        snprintf((char*)outstr.fullAddress, sizeof(outstr.fullAddress), "%.*s", 
+        snprintf((char*)fullAddress, sizeof(fullAddress), "%.*s",
                  (keytype == PUBLIC_OFFSET_ID) ? 55 : 52,
                  tmpCtx.publicKeyContext.address);
         UX_DISPLAY(ui_address_blue, ui_address_blue_prepro);
 #elif defined(TARGET_NANOS) && !defined (HAVE_UX_FLOW)
-        snprintf((char*)outstr.fullAddress, sizeof(outstr.fullAddress), " %.*s ", 
+        snprintf((char*)fullAddress, sizeof(fullAddress), " %.*s ",
                  (keytype == PUBLIC_OFFSET_ID) ? 55 : 52,
                  tmpCtx.publicKeyContext.address);
         ux_step = 0;
@@ -3041,10 +3191,12 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
     // "confirm", amount, address, ..., amount[n], address[n], fee
-    os_memset((void*)outstr.fullAddress, 0, sizeof(outstr.fullAddress));
-    os_memset((void*)outstr.fullAmount, 0, sizeof(outstr.fullAmount));
-    for ( int i = 0; i < MAX_OUTPUTS; ++i )
+    os_memset((void*)fullAddress, 0, sizeof(fullAddress));
+    os_memset((void*)fullAmount, 0, sizeof(fullAmount));
+    for ( int i = 0; i < MAX_OUTPUTS+MAX_INPUTS; ++i )
     {
+
+        addresses_type[i] = 0;
         addresses[i] = NULL;
     }
 
@@ -3072,6 +3224,7 @@ void handleSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
 
     
     strcpy(confirm_string,"Confirm");
+    strcpy(txn_type_string, "transaction");
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
     ui_approval_transaction_blue_init();
@@ -3103,7 +3256,7 @@ void handleStoreChainId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         THROW(BTCHIP_SW_INCORRECT_DATA);
     }
     os_memmove(&tmpCtx.chainidContext.chainId,workBuffer,32);
-    snprintf(outstr.fullAddress,sizeof(outstr.fullAddress)-1,"Store Chain ID?");
+    snprintf(fullAddress,sizeof(fullAddress)-1,"Store Chain ID?");
 
     ux_step_count = 0;
     ux_step = 0;
@@ -3198,7 +3351,7 @@ void handleSignRawMessageWithId(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     //reset header check now that we have valid data
     tmpCtx.transactionContext.headervalid = 0;
 
-    snprintf(outstr.fullAddress,sizeof(outstr.fullAddress)-1,"Sign Data w/ID");
+    snprintf(fullAddress,sizeof(fullAddress)-1,"Sign Data w/ID");
 
     ux_step_count = 0;
     ux_step = 0;
@@ -3387,13 +3540,13 @@ void handleSignMessageHash(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     switch (msg.bip32Path[1])
     {
         case FACTOM_ID_TYPE:
-            snprintf(outstr.fullAddress,sizeof(outstr.fullAddress),"Sign Data w/ID");
+            snprintf(fullAddress,sizeof(fullAddress),"Sign Data w/ID");
             break;
         case FCT_TYPE:
-            snprintf(outstr.fullAddress,sizeof(outstr.fullAddress),"Sign w/FCT Addr");
+            snprintf(fullAddress,sizeof(fullAddress),"Sign w/FCT Addr");
             break;
         case EC_TYPE:
-            snprintf(outstr.fullAddress,sizeof(outstr.fullAddress),"Sign w/EC Addr");
+            snprintf(fullAddress,sizeof(fullAddress),"Sign w/EC Addr");
 	    break;
         default:
             THROW(0x6B00);
@@ -3432,6 +3585,7 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
                   volatile unsigned int *tx)
 {
     UNUSED(tx);
+    cx_ecfp_private_key_t privateKey;
 
     uint8_t p1last = p1&0x0F;
     uint8_t p1state = p1&0xF0;
@@ -3465,9 +3619,13 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             dataLength -= 4;
         }
 
-        //tmpCtx.messageSigningContext.hashtype = HASH_TYPE_SHA512;//p2&0x01;
-        //workBuffer++;
-        //dataLength--;
+        //FAT only supports 0x83 types
+        if (  (uint8_t)tmpCtx.transactionContext.bip32Path[1] != 0x83 )
+        {
+            os_memset(&tmpCtx.transactionContext,0,sizeof(tmpCtx.transactionContext));
+            os_memset(&txContent,0,sizeof(txContent));
+            THROW(0x6a81);
+        }
 
         cx_sha512_init(&tmpCtx.transactionContext.hashCtx.sha512.context);
         
@@ -3529,13 +3687,57 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         THROW(0x9000);
     }
 
-    
-    int ret = 0;
+    cx_ecfp_public_key_t publicKey;
+    publicKey.W_len = 33;
+#if 0
+    int ret = getFctPublicKey(tmpCtx.transactionContext.bip32Path, tmpCtx.transactionContext.pathLength,
+                              publicKey.W, publicKey.W_len, NULL, 0 );
+    if ( ret )
+    {
+        os_memset(&tmpCtx.transactionContext, 0, sizeof(tmpCtx.transactionContext));
+        THROW(0x6B01);
+    }
+#else
+    uint8_t privateKeyData[64];
 
-    ret = parseFatTx(p2,tmpCtx.transactionContext.rawTx,
+    //cx_ecfp_private_key_t privateKey;
+
+    os_perso_derive_node_bip32(CX_CURVE_256K1,
+                               //bip32Path, bip32PathLength,
+			       tmpCtx.transactionContext.bip32Path, tmpCtx.transactionContext.pathLength,
+                               privateKeyData,
+                               NULL
+                               );
+
+    cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, 32, &privateKey);
+
+    //generate the public / private key pair.  i
+    cx_ecfp_generate_pair(CX_CURVE_Ed25519, &publicKey,
+                          &privateKey, 1);
+
+    os_memset(&privateKey, 0, sizeof(privateKey));
+    os_memset(privateKeyData, 0, sizeof(privateKeyData));
+
+        //The public key generated is 64 bytes not 32, so compress it
+        //and convert to an rcd
+        uint8_t rcd[33];
+        getCompressedPublicKeyWithRCD(&publicKey,
+                                   rcd, sizeof(rcd));
+
+        //make the compressed key the new key.
+        os_memset(publicKey.W, 0, 65);
+        publicKey.W_len = sizeof(rcd);
+        os_memmove(publicKey.W, rcd,sizeof(rcd));
+
+#endif
+
+    char inputaddress[56]={0};
+
+    getFctAddressStringFromKey(&publicKey,inputaddress, PUBLIC_OFFSET_FCT);
+
+    int ret = parseFatTx(p2,inputaddress, tmpCtx.transactionContext.rawTx,
                      tmpCtx.transactionContext.rawTxLength,
                     &txContent);
-
 
     if ( ret != 0)
     {
@@ -3557,10 +3759,11 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
 
     // "confirm", amount, address, ..., amount[n], address[n], fee
-    os_memset((void*)outstr.fullAddress, 0, sizeof(outstr.fullAddress));
-    os_memset((void*)outstr.fullAmount, 0, sizeof(outstr.fullAmount));
-    for ( int i = 0; i < MAX_OUTPUTS; ++i )
+    os_memset((void*)fullAddress, 0, sizeof(fullAddress));
+    os_memset((void*)fullAmount, 0, sizeof(fullAmount));
+    for ( int i = 0; i < MAX_OUTPUTS+MAX_INPUTS; ++i )
     {
+        addresses_type[i] = 0;
         addresses[i] = NULL;
     }
 
@@ -3573,12 +3776,18 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     //should loop through and look at input that is relative to this transaction for signing
     //to confirm the amount to be signed for from this account.
 
+    int display_ct = 0;
+    for ( int i = 0; i < txContent.header.inputcount;++i )
+    {
+        addresses_type[display_ct] = PUBLIC_OFFSET_FCT_FAT;//+p2;
+        addresses[display_ct++] = &txContent.inputs[i];
+        ux_step_count += 2;
+    }
 
-    int output_ct = 0;
     for ( int i = 0; i < txContent.header.outputcount;++i )
     {
-        addresses_type[output_ct] = PUBLIC_OFFSET_FCT_FAT;
-        addresses[output_ct++] = &txContent.outputs[i];
+        addresses_type[display_ct] = PUBLIC_OFFSET_FCT_FAT;//+p2;
+        addresses[display_ct++] = &txContent.outputs[i];
         ux_step_count += 2;
     }
 
@@ -3592,7 +3801,31 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
     }
     */
 
-    strcpy(confirm_string,"Confirm FAT");
+    if ( p2 == 2 )
+    {
+        if ( txContent.header.inputcount == 1 && txContent.inputs[0].amt.fat.typesize &&
+             txContent.header.outputcount == 1 && txContent.outputs[0].amt.fat.typesize )//content.outputs[0].addr.fctaddr == NULL)
+        {
+            char from[8] = {0};
+            char to[8] = {0};
+            strncpy(from, txContent.inputs[0].amt.fat.type, txContent.inputs[0].amt.fat.typesize);
+            strncpy(to, txContent.outputs[0].amt.fat.type, txContent.outputs[0].amt.fat.typesize);
+
+            strcpy(confirm_string,"PegNet Convert");
+            snprintf(txn_type_string,sizeof(txn_type_string), "%5s to %5s", from, to);
+        }
+        else
+        {
+            strcpy(confirm_string,"PegNet Convert");
+            strcpy(txn_type_string, "transaction");
+        }
+        //strcpy(confirm_string,"Confirm PegNet");
+    }
+    else
+    {
+        strcpy(confirm_string,"Confirm FAT");
+        strcpy(txn_type_string, "transaction");
+    }
 
 #if defined(TARGET_BLUE)
     ux_step_count = 0;
@@ -3709,7 +3942,7 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             THROW(ret);
         }
 
-	snprintf(outstr.fullAddress,sizeof(outstr.fullAddress),"Sign Chain?");
+        snprintf(fullAddress,sizeof(fullAddress),"Sign Chain?");
         //os_memmove(pubkey.W,txCcContent.ecpubkey,pubkey.W_len);
 
     }
@@ -3725,7 +3958,7 @@ void handleCommitSign(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
         }
 
         //os_memmove(pubkey.W,txEcContent.ecpubkey,pubkey.W_len);
-	snprintf((char*)outstr.fullAddress,sizeof(outstr.fullAddress),"Sign Entry?");
+        snprintf((char*)fullAddress,sizeof(fullAddress),"Sign Entry?");
 
     }
 
