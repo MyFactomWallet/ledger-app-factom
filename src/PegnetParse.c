@@ -6,7 +6,7 @@
 #include "PegnetParse.h"
 
 extern int isSpace(char c);
-int processFat1Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content);
+//int processFat1Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content);
 /*
  * FAT 0/1 Json Parser
  */
@@ -285,7 +285,7 @@ int processFat2Input(char *inputaddress, jsmntok_t **tt, jsmntok_t *tend, int8_t
             //store off the pointer to the address
             //content->inputs[content->header.inputcount].addr.fctaddr = d + t->start;
             //don't need to store it because it is already known
-            content->inputs[content->header.inputcount].addr.fctaddr = NULL;
+            content->inputs[content->header.inputcount].addr.fctaddr = d + t->start;
         }
 
         ++t;
@@ -364,7 +364,7 @@ int processFat2Input(char *inputaddress, jsmntok_t **tt, jsmntok_t *tend, int8_t
     return 0;
 }
 
-int processTransactionsArray(char *inputaddress, jsmntok_t **tt,  jsmntok_t *tend, int8_t *d, uint32_t length, txContent_t *content)
+int processTransactionsArray(const char *inputaddress, jsmntok_t **tt,  jsmntok_t *tend, int8_t *d, uint32_t length, txContent_t *content)
 {
     jsmntok_t *t = *tt;
     int ret = 0;
@@ -454,7 +454,7 @@ int processTransactionsArray(char *inputaddress, jsmntok_t **tt,  jsmntok_t *ten
     return 0;
 }
 
-int processPegTx(char *inputaddress, int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content)
+int processPegTx(const char *inputaddress, int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content)
 {
     //minimum viability for a fat transaction is 10 tokens
     if (r < 1 || t->type != JSMN_OBJECT) {

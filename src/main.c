@@ -1589,29 +1589,36 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                         if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT )
                         {
 
+                            char ttype[4]={0};
+
+                            strcpy(ttype, addresses[0]->amt.fat.typesize?"PEG":"FAT" );
+
                             os_memset((void*)dispamt,0, sizeof(dispamt));
-                            snprintf(dispamt,sizeof(dispamt),"FAT Output %d Amt",offset);
-                            //fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
-                            int size = addresses[offset]->amt.fat.size<sizeof(fullAmount)?addresses[offset]->amt.fat.size:(sizeof(fullAmount)-1);
+                            os_memset((void*)fullAmount,0, sizeof(fullAmount));
+
+			    if ( offset == 0 )
+			    {
+                                snprintf(dispamt,sizeof(dispamt),"%s Input Amt", ttype);
+			    }
+			    else
+			    {
+                                snprintf(dispamt,sizeof(dispamt),"%s Output %d Amt",ttype, offset);
+			    }
+
+                            int size = addresses[offset]->amt.fat.size<sizeof(fullAmount)?addresses[offset]->amt.fat.size:(sizeof(fullAmount)-2);
                             if ( size )
                             {
                                 strncpy((int8_t*)fullAmount, addresses[offset]->amt.fat.entry, size);
+                                if ( addresses[0]->amt.fat.typesize )
+                                {
+                                    strcat(fullAmount," ");
+                                    int maxlen= sizeof(fullAmount) - (addresses[0]->amt.fat.typesize+strlen(fullAmount));
+                                    if ( maxlen >= addresses[0]->amt.fat.typesize )
+                                    {
+                                        strncat(fullAmount, addresses[0]->amt.fat.type, addresses[0]->amt.fat.typesize);
+                                    }
+                                }
                             } 
-                    //        snprintf(dispamt,sizeof(dispamt),"amr%d",addresses[offset]->amt.fat.entry);
-                             //   fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
-                            //pegnet transaction
-                            if ( addresses[offset]->amt.fat.typesize )
-                            {
-                                snprintf(dispamt,sizeof(dispamt),"PEG Input %d Amt",offset);
-                                //strncpy(buf, content.inputs[0].addr.fctaddr, 52);
-                                //strncpy(buf2, content.inputs[0].amt.fat.type, content.inputs[0].amt.fat.typesize);
-                                //strncpy(buf3, content.inputs[0].amt.fat.entry, content.inputs[0].amt.fat.size);
-
-                                //fct_print_amount(addresses[offset]->amt.value,(int8_t*)fullAmount,sizeof(fullAmount));
-
-                                //fprintf(stderr,"Pegnet input:  %s %s %s\n", buf, buf2, buf3);
-                            }
-
                         }
                         else
                         {
@@ -1642,15 +1649,26 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
 
                         if ( addresses_type[offset] == PUBLIC_OFFSET_FCT_FAT)
                         {
-				
-                            snprintf(dispaddr,sizeof(dispaddr),"Fatout %d Addr",offset);
-			    strncpy(fullAddress,"FA2ybgFNYQiZFgTjkwQwp74uGsEUHJc6hGEh4YA3ai7FcssemapP",strlen("FA2ybgFNYQiZFgTjkwQwp74uGsEUHJc6hGEh4YA3ai7FcssemapP"));
-			    
-/*                            if ( addresses[offset]->addr.fctaddr )
+                            char ttype[4]={0};
+
+                            strcpy(ttype, addresses[0]->amt.fat.typesize?"PEG":"FAT" );
+			    if ( offset == 0 )
                             {
-                                snprintf(dispaddr,sizeof(dispaddr),"Fatout %d Address",offset);
+                                snprintf(dispaddr,sizeof(dispaddr),"%s Input Addr",ttype);
+			    }
+			    else
+			    {
+                                snprintf(dispaddr,sizeof(dispaddr),"%s Output %d Addr",ttype, offset);
+			    }
+			    
+                            if ( addresses[offset]->addr.fctaddr )
+                            {
                                 strncpy(fullAddress,addresses[offset]->addr.fctaddr,52);
-                            } */
+                            } 
+			    else
+			    {
+                                memset(fullAddress,0,sizeof(fullAddress));
+			    }
                         }
                         else
                         {
@@ -1658,16 +1676,19 @@ unsigned int ui_approval_prepro(const bagl_element_t *element) {
                             getFctAddressStringFromRCDHash((uint8_t*)addresses[offset]->addr.rcdhash,(uint8_t*)fullAddress, addresses_type[offset]);
                         }
 
-                        //os_memset((void*)addressSummary, 0, sizeof(addressSummary));
-                        //os_memmove((void *)addressSummary, (void*)fullAddress, 7);
-                        os_memmove((void *)(fullAddress + 7), "..", 2);
-                        os_memmove((void *)(fullAddress + 9),
+			//defensive check
+			if ( strlen(fullAddress)>4 )
+                        {
+                            os_memmove((void *)(fullAddress + 7), "..", 2);
+                            os_memmove((void *)(fullAddress + 9),
                                    (void*)(fullAddress + strlen(fullAddress) - 4), 4);
+                        }
+			
                         fullAddress[13] = 0;
-//                        if ( strcmp(fullAddress, "FA1zT4a..F2MC") == 0 || strcmp(fullAddress, "EC2BURN..thin") ) {
-//                            os_memset((void*)fullAddress,0,sizeof(fullAddress));
-//                            os_memmove((void *)(fullAddress), "Burn Address", strlen("Burn Address"));
-//			}
+                        if ( strcmp(fullAddress, "FA1zT4a..F2MC") == 0 || strcmp(fullAddress, "EC2BURN..thin") == 0 ) {
+                            os_memset((void*)fullAddress,0,sizeof(fullAddress));
+                            os_memmove((void *)(fullAddress), "Burn Address", strlen("Burn Address"));
+			}
 
                         rdisplay = 2;
                         goto display_detail;
@@ -3811,15 +3832,15 @@ void handleSignFatTx(uint8_t p1, uint8_t p2, uint8_t *workBuffer,
             strncpy(from, txContent.inputs[0].amt.fat.type, txContent.inputs[0].amt.fat.typesize);
             strncpy(to, txContent.outputs[0].amt.fat.type, txContent.outputs[0].amt.fat.typesize);
 
-            strcpy(confirm_string,"PegNet Convert");
+            strcpy(confirm_string,"PegNet Convert"); //pegnet convert or transaction
             snprintf(txn_type_string,sizeof(txn_type_string), "%5s to %5s", from, to);
+            ux_step_count = 4;//since we are doing a conversion, we only show the "inputs" for the conversion since there are no outputs.
         }
         else
         {
-            strcpy(confirm_string,"PegNet Convert");
+            strcpy(confirm_string,"Confirm PegNet");
             strcpy(txn_type_string, "transaction");
         }
-        //strcpy(confirm_string,"Confirm PegNet");
     }
     else
     {

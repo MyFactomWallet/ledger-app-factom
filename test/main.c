@@ -260,10 +260,13 @@ int main ( int argc, char argv[] )
     }
 
 
-    static const char *pegnettx2 ="{\"version\":1,\"transactions\":[{\"input\":{\"address\":\"FA3hGHh2Jb1wtEd1jvwvaRM2LB6iB5ZNTVBXgEyhU8kaEeiDTES4\",\"amount\":200000000000,\"type\":\"PEG\"},\"transfers\":[{\"address\":\"FA3L6Q8ufbnmbN9yBZPFCNi4eVVzMqRJiuD3siEN6JTrmbRrviJu\",\"amount\":200000000000}]}]}";
+    //static const char *pegnettx2 ="{\"version\":1,\"transactions\":[{\"input\":{\"address\":\"FA3hGHh2Jb1wtEd1jvwvaRM2LB6iB5ZNTVBXgEyhU8kaEeiDTES4\",\"amount\":200000000000,\"type\":\"PEG\"},\"transfers\":[{\"address\":\"FA3L6Q8ufbnmbN9yBZPFCNi4eVVzMqRJiuD3siEN6JTrmbRrviJu\",\"amount\":200000000000}]}]}";
 
-    strcpy(inputaddress, "FA3hGHh2Jb1wtEd1jvwvaRM2LB6iB5ZNTVBXgEyhU8kaEeiDTES4");
-    ret2=parseFatTx(2,pegnettx2, strlen(pegnettx2),&content);
+    char pegnettx2[1024] = {0};
+    static const char *pegnettx2hex = "3031353838323733373434cffce0f409ebba4ed236d49d89c70e4bd1f1367d86402a3363366683265a242d7b2276657273696f6e223a312c227472616e73616374696f6e73223a5b7b22696e707574223a7b2261646472657373223a22464132326465354e534732464132486d4d61443468387153415a414a797a746d6d6e77674c50676843514b6f53656b7759596374222c22616d6f756e74223a3135302c2274797065223a2270464354227d2c227472616e7366657273223a5b7b2261646472657373223a2246413361454370773367455a37434d5176524e7845744b42474b416f73333932326f71594c634851394e7158487564433659424d222c22616d6f756e74223a3135307d5d7d5d7d";
+    hextobin(pegnettx2,pegnettx2hex,strlen(pegnettx2hex)/2);
+    strcpy(inputaddress, "FA22de5NSG2FA2HmMaD4h8qSAZAJyztmmnwgLPghCQKoSekwYYct");
+    ret2=parseFatTx(2,inputaddress,pegnettx2, strlen(pegnettx2),&content);
     fflush(stdout);
 
     memset(buf,0,sizeof(buf));
@@ -277,6 +280,7 @@ int main ( int argc, char argv[] )
     if ( content.inputs[0].amt.fat.typesize )
     {
         strncpy(buf, content.inputs[0].addr.fctaddr, 52);
+        //strncpy(buf, content.inputs[0].amt.fat..fctaddr, 52);
         strncpy(buf2, content.inputs[0].amt.fat.type, content.inputs[0].amt.fat.typesize);
         strncpy(buf3, content.inputs[0].amt.fat.entry, content.inputs[0].amt.fat.size);
 
@@ -296,6 +300,46 @@ int main ( int argc, char argv[] )
         strncpy(buf3, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
         fprintf(stderr, "transfer output: %s %s %s\n", buf, buf2, buf3);
     }
+
+
+    const char *pegnetconversion = "3031353838323833343935cffce0f409ebba4ed236d49d89c70e4bd1f1367d86402a3363366683265a242d7b2276657273696f6e223a312c227472616e73616374696f6e73223a5b7b22696e707574223a7b2261646472657373223a22464132326465354e534732464132486d4d61443468387153415a414a797a746d6d6e77674c50676843514b6f53656b7759596374222c22616d6f756e74223a3135302c2274797065223a2270464354227d2c22636f6e76657273696f6e223a22504547227d5d7d";
+    hextobin(pegnettx2,pegnetconversion,strlen(pegnettx2hex)/2);
+    ret2=parseFatTx(2,inputaddress,pegnettx2, strlen(pegnettx2),&content);
+    fflush(stdout);
+
+    memset(buf,0,sizeof(buf));
+    strncpy(buf, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
+    printf("%s\n", buf);
+    fflush(stdout);
+
+    memset(buf,0,sizeof(buf));
+    memset(buf2,0,sizeof(buf2));
+    memset(buf3,0,sizeof(buf3));
+    if ( content.inputs[0].amt.fat.typesize )
+    {
+        strncpy(buf, content.inputs[0].addr.fctaddr, 52);
+        //strncpy(buf, content.inputs[0].amt.fat..fctaddr, 52);
+        strncpy(buf2, content.inputs[0].amt.fat.type, content.inputs[0].amt.fat.typesize);
+        strncpy(buf3, content.inputs[0].amt.fat.entry, content.inputs[0].amt.fat.size);
+
+
+        fprintf(stderr,"Pegnet input:  %s %s %s\n", buf, buf2, buf3);
+    }
+
+    if ( content.outputs[0].amt.fat.typesize  )
+    {//we have a peg convesion.
+        memset(buf,0,sizeof(buf));
+        memset(buf2,0,sizeof(buf2));
+        memset(buf3,0,sizeof(buf3));
+        strncpy(buf, content.outputs[0].addr.fctaddr, 52);
+
+    //    strncpy(buf2, content.outputs[0].amt.fat.type, content.outputs[0].amt.fat.typesize);
+
+        strncpy(buf3, content.outputs[0].amt.fat.entry, content.outputs[0].amt.fat.size);
+        fprintf(stderr, "transfer output: %s %s %s\n", buf, buf2, buf3);
+    }
+
+
 
     return 0;
 }

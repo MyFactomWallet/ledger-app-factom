@@ -5,7 +5,7 @@
 #include "fatParse.h"
 #include "PegnetParse.h"
 
-int processFat1Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content);
+int processFat1Tx(const char *inputaddress,int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content);
 /*
  * FAT 0/1 Json Parser
  */
@@ -102,7 +102,7 @@ int processFat0Outputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t lengt
 }
 
 
-int processFat0Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length, txContent_t *content)
+int processFat0Inputs(const char *inputaddress, jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length, txContent_t *content)
 {
     jsmntok_t *t = *tt;
     if ( t == tend )
@@ -138,9 +138,16 @@ int processFat0Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
             return FAT_ERROR_INVALID_FCT_ADDRESS;
         }
 
-        //store off the pointer to the address
-        //db: test not storing inputs since we don't need them
-        //content->inputs[content->header.inputcount].addr.fctaddr = d + t->start;
+	
+	bool haveinputs = false;
+        if( jsoneq(d,t,inputaddress) == 0 )
+        {
+
+            haveinputs = true;
+            //store off the pointer to the address
+            //db: test not storing inputs since we don't need them
+            content->inputs[content->header.inputcount].addr.fctaddr = d + t->start;
+	}
         ++t;
 
         if ( t->type != JSMN_PRIMITIVE )
@@ -156,8 +163,11 @@ int processFat0Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
 
         //convert to fatoshis
         //db: test not storing inputs since we don't need them
-        //content->inputs[content->header.inputcount].amt.fat.entry = &d[t->start];
-        //content->inputs[content->header.inputcount].amt.fat.size = t->end - t->start;//val * 100000000ul;
+	if ( haveinputs )
+	{
+            content->inputs[content->header.inputcount].amt.fat.entry = &d[t->start];
+            content->inputs[content->header.inputcount].amt.fat.size = t->end - t->start;//val * 100000000ul;
+	}
 
 
 //        fprintf(stderr,"- Value: %.*s %ld \n", 52,
@@ -165,7 +175,11 @@ int processFat0Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
 
         ++t;
 
-        ++content->header.inputcount;
+        if( haveinputs )
+        {
+
+            ++content->header.inputcount;
+	}
     }
 
     *tt = t;
@@ -173,7 +187,7 @@ int processFat0Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
 }
 
 
-int processFat0Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content)
+int processFat0Tx(const char *inputaddress, int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content)
 {
     //minimum viability for a fat transaction is 10 tokens
     if (r < 1 || t->type != JSMN_OBJECT) {
@@ -203,7 +217,7 @@ int processFat0Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *
         {
             ++t;
 
-            ret = processFat0Inputs(&t, tend, d, length,content);
+            ret = processFat0Inputs(inputaddress,&t, tend, d, length,content);
             if ( ret )
             {
                 return ret;
@@ -241,7 +255,7 @@ int isSpace(char c)
     return 0;
 }
 
-int parseFatTxContent(int fattype, char *inputaddress, int8_t *d, uint32_t length, txContent_t *content)
+int parseFatTxContent(int fattype, const char *inputaddress, int8_t *d, uint32_t length, txContent_t *content)
 {
     int8_t *de = d;
     uint8_t valid = 0;
@@ -321,10 +335,10 @@ int parseFatTxContent(int fattype, char *inputaddress, int8_t *d, uint32_t lengt
     switch ( fattype )
     {
     case 0:
-        ret = processFat0Tx(r,t, de, length,content);
+        ret = processFat0Tx(inputaddress,r,t, de, length,content);
         break;
     case 1:
-        ret = processFat1Tx(r,t, de, length,content);
+        ret = processFat1Tx(inputaddress,r,t, de, length,content);
         break;
     case 2:
         ret = processPegTx(inputaddress, r,t, de, length,content);
@@ -401,7 +415,7 @@ int processFat1Outputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t lengt
     return 0;
 }
 
-int processFat1Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length, txContent_t *content)
+int processFat1Inputs(const char *inputaddress, jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length, txContent_t *content)
 {
     jsmntok_t *t = *tt;
     if ( t == tend )
@@ -437,9 +451,15 @@ int processFat1Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
             return FAT_ERROR_INVALID_FCT_ADDRESS;
         }
 
-        //store off the pointer to the address
-        //db: test not storing inputs since we don't need them
-        //content->inputs[content->header.inputcount].addr.fctaddr = (int8_t*)(&d[t->start]);
+	bool haveinput = false;
+        if( jsoneq(d,t,inputaddress) == 0 )
+        {
+            haveinput = true;
+
+            //store off the pointer to the address
+            //db: test not storing inputs since we don't need them
+            content->inputs[content->header.inputcount].addr.fctaddr = (int8_t*)(&d[t->start]);
+	}
         ++t;
 
         //expect an array
@@ -451,12 +471,12 @@ int processFat1Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
 
         //convert to fatoshis
         //db: test not storing inputs since we don't need to show them?
-        //content->inputs[content->header.inputcount].amt.fat.entry = (int8_t*)&d[t->start];
-        //content->inputs[content->header.inputcount].amt.fat.size = t->end - t->start;//val * 100000000ul;
+	if( haveinput )
+        {
 
-
-//        fprintf(stderr,"- Value: %.*s %ld \n", 52,
-//               content->inputs[content->header.inputcount].addr.fctaddr,content->inputs[content->header.inputcount].value / 100000000 );
+            content->inputs[content->header.inputcount].amt.fat.entry = (int8_t*)&d[t->start];
+            content->inputs[content->header.inputcount].amt.fat.size = t->end - t->start;//val * 100000000ul;
+	}
 
 
         int jump = t->end;
@@ -465,7 +485,10 @@ int processFat1Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
             ++t;
         }
 
-        ++content->header.inputcount;
+	if ( haveinput )
+	{
+            ++content->header.inputcount;
+	}
     }
 
     *tt = t;
@@ -473,7 +496,7 @@ int processFat1Inputs(jsmntok_t **tt, jsmntok_t *tend, int8_t *d,uint32_t length
 }
 
 
-int processFat1Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content)
+int processFat1Tx(const char *inputaddress,int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *content)
 {
     //minimum viability for a fat transaction is 10 tokens
     if (r < 1 || t->type != JSMN_OBJECT) {
@@ -503,7 +526,7 @@ int processFat1Tx(int r, jsmntok_t *t, int8_t *d, uint32_t length, txContent_t *
         {
             ++t;
 
-            ret = processFat1Inputs(&t, tend, d, length,content);
+            ret = processFat1Inputs(inputaddress,&t, tend, d, length,content);
             if ( ret )
             {
                 return ret;
